@@ -107,6 +107,9 @@ class InspectorFrontendTest(unittest.TestCase):
             'data-mode="corpus"',
             'data-layout="topology"',
             'data-layout="timeline"',
+            "EDGE SEMANTICS",
+            "显式 baseline",
+            "隐式 baseline",
         ):
             self.assertIn(required_id, html)
         for behavior in (
@@ -118,6 +121,8 @@ class InspectorFrontendTest(unittest.TestCase):
             "parent_eligible",
             "showGroupEdges",
             "narrativeEdgeKeys",
+            "edgeSemanticClass",
+            "showEdgeTooltip",
             "minimizeLayerCrossings",
             "buildTopologyLayout",
             "buildTimelineLayout",
@@ -127,6 +132,7 @@ class InspectorFrontendTest(unittest.TestCase):
         ):
             self.assertIn(behavior, script)
         self.assertNotIn("`GEN ${index + 1}`", script)
+        self.assertNotIn("edge-label-bg", script)
         self.assertIn('markerUnits="userSpaceOnUse"', html)
 
 

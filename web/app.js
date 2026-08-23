@@ -413,6 +413,18 @@
       || (edge.relation_types || []).includes("KEY_AUTHOR_OVERLAP");
   }
 
+  function edgeSemanticClass(edge) {
+    if (edge.relation === "SAME_RESEARCH_GROUP") return "semantic-group";
+    if (edge.relation === "EXPLICIT_BASELINE") return "semantic-explicit";
+    if (edge.relation === "IMPLICIT_BASELINE") return "semantic-implicit";
+    if (["METHOD_DEPENDENCY", "USES_CONCEPT_FROM", "EXTENDS"].includes(edge.relation)) {
+      return "semantic-inheritance";
+    }
+    if (edge.relation === "ADDRESSES_LIMITATION") return "semantic-limitation";
+    if (edge.association_level === "medium") return "semantic-discussion";
+    return "semantic-citation";
+  }
+
   function layoutEdgeWeight(edge) {
     if (edge.dominant) return 100;
     if (edge.association_level === "strong") return 30;
@@ -904,7 +916,7 @@
       const group = svgEl("g", { class: "edge-group", "data-edge-key": key });
       const line = svgEl("path", {
         d: curve.d,
-        class: `graph-edge ${edge.association_level}${edge.relation === "SAME_RESEARCH_GROUP" ? " supplemental" : ""}${edge.dominant ? " dominant" : ""}`,
+        class: `graph-edge ${edge.association_level} ${edgeSemanticClass(edge)}${edge.relation === "SAME_RESEARCH_GROUP" ? " supplemental" : ""}${edge.dominant ? " dominant" : ""}`,
         "data-edge-key": key,
       });
       const hit = svgEl("path", { d: curve.d, class: "edge-hit", "data-edge-key": key });
@@ -914,14 +926,6 @@
         element.addEventListener("pointerleave", hideTooltip);
       });
       group.append(line, hit);
-      if (edge.dominant && layout.cards) {
-        const label = RELATION_LABELS[edge.relation] || edge.relation.replaceAll("_", " ");
-        const width = Math.min(132, Math.max(52, label.length * 8 + 15));
-        group.append(
-          svgEl("rect", { x: curve.mx - width / 2, y: curve.my - 9, width, height: 17, rx: 8, class: "edge-label-bg" }),
-          svgEl("text", { x: curve.mx, y: curve.my + 3, "text-anchor": "middle", class: "edge-label" }, label),
-        );
-      }
       dom.edges.appendChild(group);
     });
   }

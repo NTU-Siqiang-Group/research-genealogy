@@ -13,6 +13,10 @@
   --strong-soft: #f6ddd5;
   --medium: #3f78a8;
   --medium-soft: #dce9f3;
+  --implicit: #7b628f;
+  --inheritance: #a8762d;
+  --discussion: #66889b;
+  --group: #7d8b84;
   --weak: #a9b2ad;
   --weak-soft: #edf0ee;
   --gold: #c79b3a;
@@ -229,6 +233,29 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .hairball-warning { display: flex; gap: 7px; padding: 8px 9px; color: #7f6127; background: #f8edd3; border: 1px solid #ecd7a9; border-radius: 7px; font-size: 9px; line-height: 1.4; }
 .hairball-warning span { display: grid; place-items: center; flex: 0 0 auto; width: 15px; height: 15px; color: white; background: #c99432; border-radius: 50%; font-weight: 800; }
 
+.edge-legend { display: grid; gap: 8px; margin-top: 11px; }
+.edge-legend-item { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 9px; align-items: center; }
+.edge-legend-item b, .edge-legend-item small { display: block; }
+.edge-legend-item b { color: #405048; font-size: 9px; font-weight: 700; }
+.edge-legend-item small { margin-top: 1px; overflow: hidden; color: #929e98; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.edge-legend-swatch { --legend-color: var(--weak); position: relative; display: block; width: 38px; height: 10px; }
+.edge-legend-swatch::before { content: ""; position: absolute; top: 4px; left: 0; width: 33px; height: 2px; background: var(--legend-color); border-radius: 2px; }
+.edge-legend-swatch::after { content: ""; position: absolute; top: 1px; right: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--legend-color); }
+.edge-legend-swatch.primary { --legend-color: #204b3e; }
+.edge-legend-swatch.primary::before { height: 3px; }
+.edge-legend-swatch.explicit { --legend-color: var(--strong); }
+.edge-legend-swatch.implicit { --legend-color: var(--implicit); }
+.edge-legend-swatch.inheritance { --legend-color: var(--inheritance); }
+.edge-legend-swatch.inheritance::before { background: repeating-linear-gradient(90deg, var(--legend-color) 0 7px, transparent 7px 10px); }
+.edge-legend-swatch.limitation { --legend-color: var(--medium); }
+.edge-legend-swatch.limitation::before { background: repeating-linear-gradient(90deg, var(--legend-color) 0 6px, transparent 6px 10px); }
+.edge-legend-swatch.discussion { --legend-color: var(--discussion); }
+.edge-legend-swatch.discussion::before { background: repeating-linear-gradient(90deg, var(--legend-color) 0 3px, transparent 3px 7px); }
+.edge-legend-swatch.group { --legend-color: var(--group); }
+.edge-legend-swatch.group::before { height: 1px; background: repeating-linear-gradient(90deg, var(--legend-color) 0 2px, transparent 2px 6px); }
+.edge-legend-swatch.citation { --legend-color: var(--weak); opacity: .65; }
+.edge-legend-swatch.citation::before { height: 1px; }
+
 .branch-list { display: grid; gap: 7px; margin-top: 11px; }
 .branch-card {
   position: relative; width: 100%; padding: 10px 11px 9px 14px; overflow: hidden;
@@ -304,17 +331,26 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .graph-edge.medium.supplemental { stroke-width: 1.15; stroke-dasharray: 2 6; opacity: .5; }
 .group-toggle .relation-swatch { background: repeating-linear-gradient(90deg, var(--medium) 0 2px, transparent 2px 5px); }
 .graph-edge.weak { stroke: var(--weak); stroke-width: .8; opacity: .35; marker-end: url(#arrow-weak); }
+.graph-edge.semantic-explicit { stroke: var(--strong); marker-end: url(#arrow-strong); }
+.graph-edge.semantic-implicit { stroke: var(--implicit); marker-end: url(#arrow-implicit); }
+.graph-edge.semantic-inheritance { stroke: var(--inheritance); stroke-dasharray: 7 3; marker-end: url(#arrow-inheritance); }
+.graph-edge.semantic-limitation { stroke: var(--medium); stroke-dasharray: 6 4; marker-end: url(#arrow-medium); }
+.graph-edge.semantic-discussion { stroke: var(--discussion); stroke-dasharray: 3 5; marker-end: url(#arrow-discussion); }
+.graph-edge.semantic-group { stroke: var(--group); stroke-dasharray: 2 6; marker-end: url(#arrow-group); }
+.graph-edge.semantic-citation { stroke: var(--weak); marker-end: url(#arrow-weak); }
 .graph-edge.dominant { stroke: #204b3e; stroke-width: 3.3; }
 .graph-edge.dominant { marker-end: url(#arrow-dominant); }
 #arrow-strong path { fill: var(--strong); }
 #arrow-medium path { fill: var(--medium); }
 #arrow-weak path { fill: var(--weak); }
 #arrow-dominant path { fill: #204b3e; }
+#arrow-implicit path { fill: var(--implicit); }
+#arrow-inheritance path { fill: var(--inheritance); }
+#arrow-discussion path { fill: var(--discussion); }
+#arrow-group path { fill: var(--group); }
 .graph-edge.dimmed { opacity: .08; }
 .graph-edge.selected { opacity: 1; stroke-width: 4.5; }
 .edge-hit { fill: none; stroke: transparent; stroke-width: 13; cursor: pointer; }
-.edge-label-bg { fill: #fffdf8; stroke: #d7dfda; stroke-width: .8; }
-.edge-label { fill: #435149; font: 700 8px var(--sans); letter-spacing: .03em; pointer-events: none; }
 
 .node-group { cursor: pointer; transition: opacity .18s; }
 .node-group.dimmed { opacity: .16; }

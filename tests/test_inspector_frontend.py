@@ -29,21 +29,28 @@ class InspectorFrontendTest(unittest.TestCase):
             payload = json.loads(output.read_text(encoding="utf-8"))
 
         self.assertEqual(payload["summary"]["paper_count"], 150)
-        self.assertEqual(payload["summary"]["edge_count"], 1315)
-        self.assertEqual(payload["summary"]["evidence_atom_count"], 527)
+        self.assertEqual(payload["summary"]["edge_count"], 1318)
+        self.assertEqual(payload["summary"]["evidence_atom_count"], 583)
         self.assertNotIn("landmarks", payload)
         self.assertNotIn("benchmark_branches", payload)
         self.assertNotIn("evaluation", payload)
         self.assertNotIn("branches", payload["dag"])
         self.assertNotIn("cluster_paths", payload["dag"]["nodes"][0])
         self.assertNotIn("gold", payload["source_artifacts"])
-        self.assertEqual(payload["summary"]["display_primary_count"], 3)
+        self.assertEqual(payload["summary"]["display_primary_count"], 4)
         self.assertEqual(payload["summary"]["redundant_primary_count"], 1)
-        self.assertEqual(payload["summary"]["technical_lineage_paper_count"], 19)
-        self.assertEqual(payload["summary"]["technical_lineage_edge_count"], 23)
-        self.assertEqual(len(payload["auto_branches"]), 1)
-        self.assertEqual(payload["auto_branches"][0]["label"], "Monkey → ArceKV")
+        self.assertEqual(payload["summary"]["technical_lineage_paper_count"], 20)
+        self.assertEqual(payload["summary"]["technical_lineage_edge_count"], 27)
+        self.assertEqual(len(payload["auto_branches"]), 2)
+        self.assertEqual(
+            {branch["label"] for branch in payload["auto_branches"]},
+            {
+                "After Dostoevsky: Learning to Optimize LSM-trees",
+                "After Dostoevsky: Structural Designs Meet Optimality",
+            },
+        )
         self.assertIn("OPENALEX:W7160292552", payload["fulltext"])
+        self.assertIn("OPENALEX:W4399175309", payload["fulltext"])
 
         ruskey_arce = next(
             edge
@@ -67,6 +74,19 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertIn("SAME_RESEARCH_GROUP", ruskey_camal["relation_types"])
         self.assertIn("KEY_AUTHOR_OVERLAP", ruskey_camal["relation_types"])
         self.assertFalse(ruskey_camal["parent_eligible"])
+
+        dostoevsky_moose = next(
+            edge
+            for edge in payload["dag"]["edges"]
+            if edge["source"] == "OPENALEX:W2798441769"
+            and edge["target"] == "OPENALEX:W4399175309"
+        )
+        self.assertEqual(dostoevsky_moose["association_level"], "strong")
+        self.assertEqual(dostoevsky_moose["relation"], "EXPLICIT_BASELINE")
+        self.assertIn("EXPLICIT_BASELINE", dostoevsky_moose["relation_types"])
+        self.assertIn("IMPLICIT_BASELINE", dostoevsky_moose["relation_types"])
+        self.assertTrue(dostoevsky_moose["parent_eligible"])
+        self.assertTrue(dostoevsky_moose["dominant"])
 
     def test_frontend_exposes_inspection_controls(self) -> None:
         html = (ROOT / "web/index.html").read_text(encoding="utf-8")
@@ -94,9 +114,12 @@ class InspectorFrontendTest(unittest.TestCase):
             "buildTopologyLayout",
             "buildTimelineLayout",
             "assignRouteLanes",
+            "balanced_temporal_topological_dag_with_obstacle_routes",
             "auto_branches",
         ):
             self.assertIn(behavior, script)
+        self.assertNotIn("`GEN ${index + 1}`", script)
+        self.assertIn('markerUnits="userSpaceOnUse"', html)
 
 
 if __name__ == "__main__":

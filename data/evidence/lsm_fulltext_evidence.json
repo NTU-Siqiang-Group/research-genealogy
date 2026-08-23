@@ -24,6 +24,13 @@
         "resolved_references": 35
       },
       {
+        "paper_id": "OPENALEX:W4399175309",
+        "pdf_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+        "sections": 14,
+        "bibliography_entries": 69,
+        "resolved_references": 27
+      },
+      {
         "paper_id": "OPENALEX:W7160292552",
         "pdf_path": "data/raw/pdfs/arcekv.pdf",
         "sections": 24,
@@ -32,9 +39,9 @@
       }
     ],
     "association_level_counts": {
-      "weak": 86,
-      "medium": 14,
-      "strong": 9
+      "weak": 107,
+      "medium": 16,
+      "strong": 11
     },
     "method": "section_aware_numeric_citation_and_entity_provenance"
   },
@@ -551,6 +558,37 @@
     },
     {
       "source": "OPENALEX:W2035735180",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution. Conway et al. [11] propose Mapped SplinterDB to improve lookup performance of SplinterDB.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2035735180",
+          "citation_marker": "[3, 49]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2035735180",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "CITES",
@@ -819,6 +857,37 @@
     },
     {
       "source": "OPENALEX:W2068739275",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Structural Designs Meet Optimality: Exploring Optimized LSM-tree Structures in A Colossal Configuration Space 175:23 For pursuing higher update performance, many works utilize modified compaction schema including delayed compaction [44], light-weight compaction [53, 61], and compaction warm-up [1]. To start with, Patrick [43] proves a fixed size ratio is update-friendly for Level-like structures. Wisckey [36] and HashKV [7] demonstrate that key-value separation is another approach to improve update performance. Additionally, Dai et al. [13] propose Bourbon, a learned index, to accelerate the point lookup operations for these methods.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2068739275",
+          "citation_marker": "[43]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2068739275",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "CITES",
@@ -865,7 +934,7 @@
       "source": "OPENALEX:W2108783070",
       "target": "OPENALEX:W2798441769",
       "citation_exists": true,
-      "relation": "EXTENDS",
+      "relation": "EXPLICIT_BASELINE",
       "explanation": "Strong association supported by 5 section-aware full-text evidence atom(s).",
       "evidence": [
         "OPENALEX:W2798441769 6 RELATED WORK: CITATION",
@@ -1197,6 +1266,50 @@
     },
     {
       "source": "OPENALEX:W2155256331",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Over the past decade, numerous research has emerged concerning key-value stores (KVS). Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2155256331",
+          "citation_marker": "[6, 20, 33, 52, 55, 57, 60, 64]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Over the past decade, numerous research has emerged concerning key-value stores (KVS). Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2155256331",
+          "citation_marker": "[57]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2155256331",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "CITES",
@@ -1293,6 +1406,37 @@
           "citation_marker": "[23]",
           "entity": null,
           "source_path": "data/raw/pdfs/dostoevsky.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2550104829",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Publication date: June 2024. Structural Designs Meet Optimality: Exploring Optimized LSM-tree Structures in A Colossal Configuration Space 175:23 For pursuing higher update performance, many works utilize modified compaction schema including delayed compaction [44], light-weight compaction [53, 61], and compaction warm-up [1]. To start with, Patrick [43] proves a fixed size ratio is update-friendly for Level-like structures. Wisckey [36] and HashKV [7] demonstrate that key-value separation is another approach to improve update performance.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2550104829",
+          "citation_marker": "[44]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -1435,6 +1579,50 @@
           "citation_marker": "[1–3, 7–9, 11, 12, 16–20, 23, 25–29, 36–39, 45–50, 53, 54, 57–60, 63, 66–68]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2594680891",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "To start with, Patrick [43] proves a fixed size ratio is update-friendly for Level-like structures. Wisckey [36] and HashKV [7] demonstrate that key-value separation is another approach to improve update performance. Additionally, Dai et al. [13] propose Bourbon, a learned index, to accelerate the point lookup operations for these methods. Meanwhile, Nova-LSM [25] parallelizes compaction by storage and process separation.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2594680891",
+          "citation_marker": "[36]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Wisckey [36] and HashKV [7] demonstrate that key-value separation is another approach to improve update performance. Additionally, Dai et al. [13] propose Bourbon, a learned index, to accelerate the point lookup operations for these methods. Meanwhile, Nova-LSM [25] parallelizes compaction by storage and process separation. Luo et al. [37] and Kim et al. [29] identify memory contention between buffer and Bloom filter, allowing them to adjust point lookup and update tradeoff by tuning memory allocation strategy.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2594680891",
+          "citation_marker": "[13]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -1584,7 +1772,7 @@
       "source": "OPENALEX:W2605800201",
       "target": "OPENALEX:W2798441769",
       "citation_exists": true,
-      "relation": "METHOD_DEPENDENCY",
+      "relation": "EXPLICIT_BASELINE",
       "explanation": "Strong association supported by 9 section-aware full-text evidence atom(s).",
       "evidence": [
         "OPENALEX:W2798441769 1 INTRODUCTION: DIRECT_DISCUSSION",
@@ -1863,6 +2051,102 @@
           "citation_marker": "[16–18, 26]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2605800201",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Medium association supported by 6 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 1 INTRODUCTION: DIRECT_DISCUSSION",
+        "OPENALEX:W4399175309 3.2 Analyzing Each Operation: CITATION",
+        "OPENALEX:W4399175309 3.3 New Inspirations on the Three-way Tradeoff: CITATION",
+        "OPENALEX:W4399175309 3.3 New Inspirations on the Three-way Tradeoff: CITATION",
+        "OPENALEX:W4399175309 3.6 Smoose: Workload Aware Moose: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.72,
+      "dominant": false,
+      "association_level": "medium",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Therefore, recent key-value stores like RocksDB and LevelDB use Bloom filters in each sorted run to significantly improve read performance by reducing disk I/Os for point lookups. Moreover, the point lookup performance has been further optimized by an influential work Monkey [14], which strategically utilizes the filter memory budgets across levels and effectively improves point lookup performance. Doestoevsky [15], built on Monkey, explores a tradeoff between tiering compaction (write-optimized) and leveling compaction (read-optimized), suggesting performance tuning based on workload. Later, LSM-Bush [16] introduces a more flexible structure by partly relaxing capacity ratios between adjacent levels which obviously enhances write performance.",
+          "role": "DIRECT_DISCUSSION",
+          "cited_paper_id": "OPENALEX:W2605800201",
+          "citation_marker": "[14]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.72
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.2 Analyzing Each Operation",
+          "section_type": "other",
+          "text": "Hence, the probability of falsely retrieving a run at Level-𝑖 equals the Bloom filter false positive rate 𝑝𝑖. In the worst case, as indicated in the recent works [14, 15], the desired key is absent throughout the entire tree and all levels should be traversed. Therefore, the I/O cost of a point lookup operation is the sum of false positive rates at all runs as Equation 4 presents. 𝑍 =𝑂 𝐿 ∑︁ 𝑖=1 𝑛𝑖 · 𝑝𝑖 ! (4) Proc. ACM Manag.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2605800201",
+          "citation_marker": "[14, 15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.3 New Inspirations on the Three-way Tradeoff",
+          "section_type": "other",
+          "text": "Whereas, the impact of false positive rate is more complex due to its dependence on the Bloom filter memory assignment strategy. Existing studies [14, 16] have demonstrated that assigning identical bits per key for each entry is suboptimal for point lookup improvement. Therefore, we aim to propose an optimal Bloom filter memory assignment strategy for our proposed LSM-tree generalization to expedite point lookup operation. Finally, our analysis indicates that, considering both the run number 𝑛𝑖 and false positive rate 𝑝𝑖, expanding the capacity of the last level 𝑁𝐿 is advantageous for co-optimizing point lookups conditioned on optimized update and range lookup performance.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2605800201",
+          "citation_marker": "[14, 16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.3 New Inspirations on the Three-way Tradeoff",
+          "section_type": "other",
+          "text": "Therefore, they are inherently less sensitive to the false positive rate increment due to the higher true positive rate. As a result, allocating more memory to the smaller levels helps achieve a more favorable tradeoff that ultimately enhances overall point lookup performance. 𝑛𝑖 · 𝑝𝑖 𝑁𝑖 = 𝑛𝑗 · 𝑝𝑗 𝑁𝑗 (10) This insight is consistent with the existing study Monkey [14]. Specifically, Monkey is a specialized case of our method with a fixed size ratio and number of runs across all levels. In comparison to this approach, our Bloom filter memory allocation strategy is more inclusive and thus applicable to more flexible LSM-tree structures.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2605800201",
+          "citation_marker": "[14]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.6 Smoose: Workload Aware Moose",
+          "section_type": "other",
+          "text": "Consequently, we can reformulate the costs as follows: 𝑆 = 𝑘 Í𝐿 𝑖=1 √ 𝑟𝑖, 𝑈 = 1 𝑘𝐵 Í𝐿 𝑖=1 √ 𝑟𝑖, and 𝑍 =𝑘 Í𝐿 𝑖=1 𝑝𝑖 √ 𝑟𝑖. Please note that the cost of non-zero result point lookup is notspecializedinthemodelsinceitsprobabilisticisuncertainforSmoose.Moreover,thiscostmodel can be conveniently expanded if the relevant information is furnished [14]. This cost model assists the subsequent tractable structure adaptation process to evaluate the performance of each specific structure within the design space, enabling the identification of the most favorable configuration. Tractablestructureadaptation.Agivenworkloadcharacterizedbyoperationproportions {𝑠,𝑢,𝑧} tends to favor a particular tradeoff strategy among point lookups, range lookups, and updates that is associated with a particular Moose configuration.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2605800201",
+          "citation_marker": "[14]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "LSM-tree performance optimization. To enhance point lookup performance, Monkey [14] assigns more Bloom filter BPK for smaller levels. Li et al. [67] and Zhu et al. [69] reach the same target by applying Bloom filter modification. Moreover, Chucky [17] and SSCF [34] replace the Bloom filter with alternative components, which allows them to reach superior point lookup performance with reduced storage overhead.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2605800201",
+          "citation_marker": "[14]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -3041,6 +3325,184 @@
     },
     {
       "source": "OPENALEX:W2798441769",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "EXPLICIT_BASELINE",
+      "explanation": "Strong association supported by 12 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 1 INTRODUCTION: DIRECT_DISCUSSION",
+        "OPENALEX:W4399175309 1 INTRODUCTION: CITATION",
+        "OPENALEX:W4399175309 1 INTRODUCTION: CITATION",
+        "OPENALEX:W4399175309 1 INTRODUCTION: DIRECT_DISCUSSION",
+        "OPENALEX:W4399175309 3.2 Analyzing Each Operation: CITATION",
+        "OPENALEX:W4399175309 4 EVALUATION: CITATION",
+        "OPENALEX:W4399175309 4 EVALUATION: EXPLICIT_BASELINE",
+        "OPENALEX:W4399175309 4 EVALUATION: CITATION",
+        "OPENALEX:W4399175309 4 EVALUATION: IMPLICIT_BASELINE",
+        "OPENALEX:W4399175309 4 EVALUATION: IMPLICIT_BASELINE",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION",
+        "OPENALEX:W2798441769 1 INTRODUCTION: ENTITY_ORIGIN"
+      ],
+      "confidence": 0.95,
+      "dominant": true,
+      "association_level": "strong",
+      "relation_types": [
+        "CITES",
+        "EXPLICIT_BASELINE",
+        "EXTENDS",
+        "IMPLICIT_BASELINE",
+        "USES_CONCEPT_FROM"
+      ],
+      "parent_eligible": true,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "In conventional LSM-trees, a fixed size ratio and run number are applied across all levels. Dostoevsky [15] extends this design space by employing two adjustable run numbers for the last level and non-last levels, respectively. LSM-Bush [16], to some extent, relaxes constraints on both size ratio and run number. It adopts a descending size ratio and maintains either a single run or a number equal to size ratio of runs per level.",
+          "role": "DIRECT_DISCUSSION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.72
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Note that “optimal” indicates the optimality within its own designated configuration space. Configuration Space Optimality within configuration sapce Domains Structural Flexibility Structures Point lookup Update Range query Size ratio #Runs per-level Filter BPK per-level Conventional LSM-tree % % % Leveling [23] Optimal Low Optimal Tiering [32] Low Optimal Low Dostoevsky [15] % ! ! Lazy Leveling [15] Moderate High Low LSM-Bush [16] ! — ! — ! QLSM-Bush [16] Moderate Optimal Low LSM-tree Generalization* ! ! !",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": "Lazy Leveling",
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Configuration Space Optimality within configuration sapce Domains Structural Flexibility Structures Point lookup Update Range query Size ratio #Runs per-level Filter BPK per-level Conventional LSM-tree % % % Leveling [23] Optimal Low Optimal Tiering [32] Low Optimal Low Dostoevsky [15] % ! ! Lazy Leveling [15] Moderate High Low LSM-Bush [16] ! — ! — ! QLSM-Bush [16] Moderate Optimal Low LSM-tree Generalization* ! ! ! Moose* Conditional Optimal Optimal Tradeoff social graph processing [4] and time-series data systems [31, 46] to cryptocurrencies [45], online services [19] and spatial databases [39].",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": "Lazy Leveling",
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Moreover, the point lookup performance has been further optimized by an influential work Monkey [14], which strategically utilizes the filter memory budgets across levels and effectively improves point lookup performance. Doestoevsky [15], built on Monkey, explores a tradeoff between tiering compaction (write-optimized) and leveling compaction (read-optimized), suggesting performance tuning based on workload. Later, LSM-Bush [16] introduces a more flexible structure by partly relaxing capacity ratios between adjacent levels which obviously enhances write performance. While these works offer fundamental improvements and inspirations, we witness two open problems.",
+          "role": "DIRECT_DISCUSSION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.72
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.2 Analyzing Each Operation",
+          "section_type": "other",
+          "text": "Hence, the probability of falsely retrieving a run at Level-𝑖 equals the Bloom filter false positive rate 𝑝𝑖. In the worst case, as indicated in the recent works [14, 15], the desired key is absent throughout the entire tree and all levels should be traversed. Therefore, the I/O cost of a point lookup operation is the sum of false positive rates at all runs as Equation 4 presents. 𝑍 =𝑂 𝐿 ∑︁ 𝑖=1 𝑛𝑖 · 𝑝𝑖 ! (4) Proc. ACM Manag.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[14, 15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "Lv), Tiering [32] (abbr. Tr), Lazy- Leveling [15] (abbr. LL), and QLSM-Bush [16] (abbr. Bsh).",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": "Lazy Leveling",
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "We assess the performance of Smoose (abbr. SMSE) with three-way-mixed workloads and make a comparative evaluation against another workload-aware designs, Dostoevsky [15] (abbr. Dos). To ensure equitable comparisons, we configure both methods using identical workload parameters (i.e., the proportion of each operations).",
+          "role": "EXPLICIT_BASELINE",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.88
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "In addition, to illustrate the practical effectiveness, we also compare the result of the tuned RocksDB (abbr. TRDB) [15]. Experiment design. In data preparation phase, we bulk load approximately 11GB data into the database, featuring random key-value pairs.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "For workloads with substantial updates, Tiering is favored as it is optimized for writes. Lazy-Leveling balances update throughput and range lookup performance, outperforming Tiering in the latter. However, QLSM- Bush, prioritizing updates, compromises range lookup performance, leading to inadequate overall Proc. ACM Manag.",
+          "role": "IMPLICIT_BASELINE",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": null,
+          "entity": "Lazy Leveling",
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.82
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "Generally, Moose showcases superiority throughout the entire process. LazyLeveling slightly outperforms Leveling and Tiering, while QLSM-Bush exhibits poor performance due to a high number of range lookup operations. Discussion 4: Prediction accuracy of cost model. We vary the last level capacity and compare predicted costs with actual latencies.",
+          "role": "IMPLICIT_BASELINE",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": null,
+          "entity": "Lazy Leveling",
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.82
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Sarkar et al. [48] present the design space of LSM-tree compaction and evaluate various compaction strategies. Dostoevsky [15] enables more flexible compaction by adjusting the number of runs per level, ranging from 1 to the size ratio, for the last and non-last levels. Ruskey[41] proposes a further extended design space by allowing flexible compaction for all levels and utilizes a reinforcement learning algorithm [50] to explore it. K-LSM [27] also considers flexible compactions across levels, while integrating a novel tuning approach to determine the structure for facilitating workload uncertainty.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2798441769",
+          "citation_marker": "[15]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W2798441769",
+          "section": "1 INTRODUCTION",
+          "section_type": "entity_origin",
+          "text": "We introduce Lazy Leveling, a design that removes merge operations from all levels of LSM-tree but the largest.",
+          "role": "ENTITY_ORIGIN",
+          "cited_paper_id": null,
+          "citation_marker": null,
+          "entity": "Lazy Leveling",
+          "source_path": "data/raw/pdfs/dostoevsky.pdf",
+          "confidence": 0.95
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2798441769",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "EXTENDS",
@@ -3734,6 +4196,51 @@
     },
     {
       "source": "OPENALEX:W2948051378",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "EXTENDS",
+      "explanation": "Weak association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 4 EVALUATION: CITATION",
+        "OPENALEX:W4399175309 6 CONCLUSION: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES",
+        "EXTENDS"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "We expand the scope of Moose to accommodate varying key-value sizes and storage layouts (column/row store) to assess its effectiveness in practical systems. Moreover, we incorporate column accessing into the workload to realize the performance enhancement presented in most associated database systems [5, 24, 51]. In Figure 9 Proc. ACM Manag.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948051378",
+          "citation_marker": "[5, 24, 51]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "6 CONCLUSION",
+          "section_type": "other",
+          "text": "Both Moose and Smoose demonstrate a desirable three-way tradeoff and outstanding performance, as validated theoretically and experimentally. In the future, it would be interesting to integrate our work into actual DBMS [5, 24, 51] or LSM-Tree Index to examine the efficacy and attain further gains. Proc. ACM Manag.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948051378",
+          "citation_marker": "[5, 24, 51]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2948051378",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "CITES",
@@ -3952,6 +4459,142 @@
           "citation_marker": "[16–18, 26]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W2948214724",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "EXTENDS",
+      "explanation": "Medium association supported by 9 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 1 INTRODUCTION: DIRECT_DISCUSSION",
+        "OPENALEX:W4399175309 1 INTRODUCTION: CITATION",
+        "OPENALEX:W4399175309 1 INTRODUCTION: DIRECT_DISCUSSION",
+        "OPENALEX:W4399175309 1 INTRODUCTION: DIRECT_DISCUSSION",
+        "OPENALEX:W4399175309 3.3 New Inspirations on the Three-way Tradeoff: CITATION",
+        "OPENALEX:W4399175309 3.6 Smoose: Workload Aware Moose: CITATION",
+        "OPENALEX:W4399175309 4 EVALUATION: CITATION",
+        "OPENALEX:W4399175309 4 EVALUATION: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.72,
+      "dominant": false,
+      "association_level": "medium",
+      "relation_types": [
+        "CITES",
+        "EXTENDS"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Dostoevsky [15] extends this design space by employing two adjustable run numbers for the last level and non-last levels, respectively. LSM-Bush [16], to some extent, relaxes constraints on both size ratio and run number. It adopts a descending size ratio and maintains either a single run or a number equal to size ratio of runs per level. LSM-tree generalization offers entirely independent configuration options for the size ratio and number of runs per level.",
+          "role": "DIRECT_DISCUSSION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.72
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Configuration Space Optimality within configuration sapce Domains Structural Flexibility Structures Point lookup Update Range query Size ratio #Runs per-level Filter BPK per-level Conventional LSM-tree % % % Leveling [23] Optimal Low Optimal Tiering [32] Low Optimal Low Dostoevsky [15] % ! ! Lazy Leveling [15] Moderate High Low LSM-Bush [16] ! — ! — ! QLSM-Bush [16] Moderate Optimal Low LSM-tree Generalization* ! ! ! Moose* Conditional Optimal Optimal Tradeoff social graph processing [4] and time-series data systems [31, 46] to cryptocurrencies [45], online services [19] and spatial databases [39].",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Lazy Leveling [15] Moderate High Low LSM-Bush [16] ! — ! — ! QLSM-Bush [16] Moderate Optimal Low LSM-tree Generalization* ! ! ! Moose* Conditional Optimal Optimal Tradeoff social graph processing [4] and time-series data systems [31, 46] to cryptocurrencies [45], online services [19] and spatial databases [39]. A point lookup outputs a value corresponding to the queried key; a range lookup scans a key range and outputs the values mapped to the keys located in the range; an update in an LSM-tree admits a new key-value entry into the data structure, with a special bit marking whether the write represents an insert or a delete.",
+          "role": "DIRECT_DISCUSSION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.72
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "1 INTRODUCTION",
+          "section_type": "introduction",
+          "text": "Doestoevsky [15], built on Monkey, explores a tradeoff between tiering compaction (write-optimized) and leveling compaction (read-optimized), suggesting performance tuning based on workload. Later, LSM-Bush [16] introduces a more flexible structure by partly relaxing capacity ratios between adjacent levels which obviously enhances write performance. While these works offer fundamental improvements and inspirations, we witness two open problems. Problem 1: To what extent can we optimize point lookups, range lookups and updates simultaneously?",
+          "role": "DIRECT_DISCUSSION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.72
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.3 New Inspirations on the Three-way Tradeoff",
+          "section_type": "other",
+          "text": "Whereas, the impact of false positive rate is more complex due to its dependence on the Bloom filter memory assignment strategy. Existing studies [14, 16] have demonstrated that assigning identical bits per key for each entry is suboptimal for point lookup improvement. Therefore, we aim to propose an optimal Bloom filter memory assignment strategy for our proposed LSM-tree generalization to expedite point lookup operation. Finally, our analysis indicates that, considering both the run number 𝑛𝑖 and false positive rate 𝑝𝑖, expanding the capacity of the last level 𝑁𝐿 is advantageous for co-optimizing point lookups conditioned on optimized update and range lookup performance.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[14, 16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.6 Smoose: Workload Aware Moose",
+          "section_type": "other",
+          "text": "While substantial changes in workload require structural transformation to modify capacities and run numbers at each level. Hence, a lazy strategy [41] and preemptive compaction [16] could be utilized to reduce transformation costs while maintaining competitive overall performance.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "Tr), Lazy- Leveling [15] (abbr. LL), and QLSM-Bush [16] (abbr. Bsh). For Leveling, Tiering, and Lazy-Leveling, we set the size ratio𝑇 to 10, in accordance with the default size ratio of RocksDB [22].",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "For Leveling, Tiering, and Lazy-Leveling, we set the size ratio𝑇 to 10, in accordance with the default size ratio of RocksDB [22]. In the case of QLSM-Bush, we employ𝑇 = 2 and 𝑋 = 2, following the recommendations outlined in the original paper [16]. The buffer size for all the baseline systems is set at 2MB. Furthermore, we allocate a Bloom filter budget of 5 bits per key, in accordance with the default configuration in RocksDB.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "This introduces notable challenges, necessitating the non-trivial optimization techniques proposed in our work. Dayan et al. [16] explore this constraint by introducing an exponentially decreasing size ratio between adjacent levels and propose QLSM- Bush, which achieves satisfactory update performance. Comparatively, we explore a more extensive design space thus empowering the LSM-tree to achieve a superior three-way trade-off.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W2948214724",
+          "citation_marker": "[16]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -4375,6 +5018,37 @@
     },
     {
       "source": "OPENALEX:W3018708672",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Zhang et al. [62] record the inserted keys with fast succinct tries to utilize the sequential information. Luo et al. [38] proposed a Bloom filter based method to encode the existence of keys with hierarchical structure, which is subsequently enhanced by bloomRF [42]. Based on these works, Proteus [30] and REncoder [59] are proposed to employ hybrid structures. Moreover, Vaidya et al. [54] introduced learned model which is followed by OASIS [9] and presented satisfactory performance.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3018708672",
+          "citation_marker": "[38]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W3018708672",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "CITES",
@@ -4770,6 +5444,68 @@
       ]
     },
     {
+      "source": "OPENALEX:W3137302028",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Luo et al. [37] and Kim et al. [29] identify memory contention between buffer and Bloom filter, allowing them to adjust point lookup and update tradeoff by tuning memory allocation strategy. For mitigating the issue of space amplification, Sarkar et al. [47], Dayan et al. [18], and Alkowaileet et al. [2] modify the compaction granularity [40] to expedite garbage collection. These approaches often focus on single or dual optimization objectives, rather than simultaneously optimizing point lookup, range lookup, and update. Besides, they are typically orthogonal to our work, as they rarely involve tuning the LSM-tree structure.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3137302028",
+          "citation_marker": "[40]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W3148141054",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Additionally, Dai et al. [13] propose Bourbon, a learned index, to accelerate the point lookup operations for these methods. Meanwhile, Nova-LSM [25] parallelizes compaction by storage and process separation. Luo et al. [37] and Kim et al. [29] identify memory contention between buffer and Bloom filter, allowing them to adjust point lookup and update tradeoff by tuning memory allocation strategy. For mitigating the issue of space amplification, Sarkar et al. [47], Dayan et al. [18], and Alkowaileet et al. [2] modify the compaction granularity [40] to expedite garbage collection.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3148141054",
+          "citation_marker": "[25]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
       "source": "OPENALEX:W3173499193",
       "target": "OPENALEX:W4388620464",
       "citation_exists": true,
@@ -4822,6 +5558,37 @@
           "citation_marker": "[1–3, 7–9, 11, 12, 16–20, 23, 25–29, 36–39, 45–50, 53, 54, 57–60, 63, 66–68]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W3173499193",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Li et al. [67] and Zhu et al. [69] reach the same target by applying Bloom filter modification. Moreover, Chucky [17] and SSCF [34] replace the Bloom filter with alternative components, which allows them to reach superior point lookup performance with reduced storage overhead. Besides, SA-LSM [63] and Bi-directional LSM-tree [65] change data distribution to speed up lookup operations of frequently accessed data for handling the skewed workload. Vu [56] et al.study the incremental spatial partitioning problem to decrease the lookup latency for big data [21].",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3173499193",
+          "citation_marker": "[17]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -4973,6 +5740,37 @@
     },
     {
       "source": "OPENALEX:W3176757854",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "To enhance point lookup performance, Monkey [14] assigns more Bloom filter BPK for smaller levels. Li et al. [67] and Zhu et al. [69] reach the same target by applying Bloom filter modification. Moreover, Chucky [17] and SSCF [34] replace the Bloom filter with alternative components, which allows them to reach superior point lookup performance with reduced storage overhead. Besides, SA-LSM [63] and Bi-directional LSM-tree [65] change data distribution to speed up lookup operations of frequently accessed data for handling the skewed workload.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3176757854",
+          "citation_marker": "[69]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W3176757854",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "CITES",
@@ -5042,6 +5840,50 @@
           "citation_marker": "[25, 28, 56, 70, 104, 108, 109]",
           "entity": null,
           "source_path": "data/raw/pdfs/arcekv.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W3177112284",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Over the past decade, numerous research has emerged concerning key-value stores (KVS). Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3177112284",
+          "citation_marker": "[6, 20, 33, 52, 55, 57, 60, 64]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Over the past decade, numerous research has emerged concerning key-value stores (KVS). Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3177112284",
+          "citation_marker": "[20, 52, 60]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -5130,6 +5972,37 @@
           "citation_marker": "[1–3, 7–9, 11, 12, 16–20, 23, 25–29, 36–39, 45–50, 53, 54, 57–60, 63, 66–68]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W3197204476",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Endure [26] leverages a globally consistent size ratio and selects compaction policies between leveling and tiering. Sarkar et al. [48] present the design space of LSM-tree compaction and evaluate various compaction strategies. Dostoevsky [15] enables more flexible compaction by adjusting the number of runs per level, ranging from 1 to the size ratio, for the last and non-last levels. Ruskey[41] proposes a further extended design space by allowing flexible compaction for all levels and utilizes a reinforcement learning algorithm [50] to explore it.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W3197204476",
+          "citation_marker": "[48]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -5268,6 +6141,37 @@
     },
     {
       "source": "OPENALEX:W4205718173",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Meanwhile, Nova-LSM [25] parallelizes compaction by storage and process separation. Luo et al. [37] and Kim et al. [29] identify memory contention between buffer and Bloom filter, allowing them to adjust point lookup and update tradeoff by tuning memory allocation strategy. For mitigating the issue of space amplification, Sarkar et al. [47], Dayan et al. [18], and Alkowaileet et al. [2] modify the compaction granularity [40] to expedite garbage collection. These approaches often focus on single or dual optimization objectives, rather than simultaneously optimizing point lookup, range lookup, and update.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4205718173",
+          "citation_marker": "[37]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4205718173",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
       "relation": "EXTENDS",
@@ -5338,6 +6242,37 @@
           "citation_marker": "[11,36,50,61,78]",
           "entity": null,
           "source_path": "data/raw/pdfs/arcekv.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4210494128",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Besides, SA-LSM [63] and Bi-directional LSM-tree [65] change data distribution to speed up lookup operations of frequently accessed data for handling the skewed workload. Vu [56] et al.study the incremental spatial partitioning problem to decrease the lookup latency for big data [21]. To boost range lookup efficiency, various range filters have been proposed. Zhang et al. [62] record the inserted keys with fast succinct tries to utilize the sequential information.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4210494128",
+          "citation_marker": "[56]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -5531,6 +6466,52 @@
           "citation_marker": "[16–18, 26]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4283314621",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "EXPLICIT_BASELINE",
+      "explanation": "Strong association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 4 EVALUATION: EXPLICIT_BASELINE",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.88,
+      "dominant": false,
+      "association_level": "strong",
+      "relation_types": [
+        "CITES",
+        "EXPLICIT_BASELINE",
+        "EXTENDS"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "4 EVALUATION",
+          "section_type": "evaluation",
+          "text": "The baselines in this experiment can be divided into two groups, the non-workloadaware group and the workload-aware group. Following the setting of existing works (e.g., [8, 26]), we conduct the three-way-mixed workloads for Leveling, Tiering, QLSM-Bush, Moose, Dostoevsky, and Smoose. The composition of operations in each workload and the result are depicted in Figure 8. Generally, Smoose outperforms all baselines or demonstrates comparable performance across all workloads.",
+          "role": "EXPLICIT_BASELINE",
+          "cited_paper_id": "OPENALEX:W4283314621",
+          "citation_marker": "[8, 26]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.88
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "The works optimizing the LSM-tree performance via tuning the LSM-tree structure are more related to our work. Endure [26] leverages a globally consistent size ratio and selects compaction policies between leveling and tiering. Sarkar et al. [48] present the design space of LSM-tree compaction and evaluate various compaction strategies. Dostoevsky [15] enables more flexible compaction by adjusting the number of runs per level, ranging from 1 to the size ratio, for the last and non-last levels.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4283314621",
+          "citation_marker": "[26]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -5860,6 +6841,37 @@
       ]
     },
     {
+      "source": "OPENALEX:W4292773530",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Moreover, Chucky [17] and SSCF [34] replace the Bloom filter with alternative components, which allows them to reach superior point lookup performance with reduced storage overhead. Besides, SA-LSM [63] and Bi-directional LSM-tree [65] change data distribution to speed up lookup operations of frequently accessed data for handling the skewed workload. Vu [56] et al.study the incremental spatial partitioning problem to decrease the lookup latency for big data [21]. To boost range lookup efficiency, various range filters have been proposed.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4292773530",
+          "citation_marker": "[65]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
       "source": "OPENALEX:W4312621027",
       "target": "OPENALEX:W4388620464",
       "citation_exists": true,
@@ -5899,6 +6911,50 @@
           "citation_marker": "[1–3, 7–9, 11, 12, 16–20, 23, 25–29, 36–39, 45–50, 53, 54, 57–60, 63, 66–68]",
           "entity": null,
           "source_path": "data/raw/pdfs/ruskey.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4312621027",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Over the past decade, numerous research has emerged concerning key-value stores (KVS). Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4312621027",
+          "citation_marker": "[6, 20, 33, 52, 55, 57, 60, 64]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Over the past decade, numerous research has emerged concerning key-value stores (KVS). Some hardware oriented studies [6, 20, 33, 52, 55, 57, 60, 64] design specialized KVS to deploy on modern storage devices, including advanced SSDs [20, 52, 60] and persistent memory [33, 66, 68], to enhance the parallel processing capabilities [57] and write performance [6, 55, 64]. For facilitating cloud servers, Idreos et al. [28] present a KVS design space consisting of various hardware and data layout strategies [3, 49]. Based on this, Cosine [8] is proposed to quantify the overhead of KVS on the cloud and tune for specific workload distribution.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4312621027",
+          "citation_marker": "[20, 52, 60]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -6006,9 +7062,40 @@
     },
     {
       "source": "OPENALEX:W4313065965",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Luo et al. [37] and Kim et al. [29] identify memory contention between buffer and Bloom filter, allowing them to adjust point lookup and update tradeoff by tuning memory allocation strategy. For mitigating the issue of space amplification, Sarkar et al. [47], Dayan et al. [18], and Alkowaileet et al. [2] modify the compaction granularity [40] to expedite garbage collection. These approaches often focus on single or dual optimization objectives, rather than simultaneously optimizing point lookup, range lookup, and update. Besides, they are typically orthogonal to our work, as they rarely involve tuning the LSM-tree structure.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4313065965",
+          "citation_marker": "[18]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4313065965",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
-      "relation": "EXTENDS",
+      "relation": "EXPLICIT_BASELINE",
       "explanation": "Strong association supported by 6 section-aware full-text evidence atom(s).",
       "evidence": [
         "OPENALEX:W4402969669 1.6 Average Transition I/Os: DIRECT_DISCUSSION",
@@ -6147,6 +7234,37 @@
       ]
     },
     {
+      "source": "OPENALEX:W4385270105",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Conway et al. [11] propose Mapped SplinterDB to improve lookup performance of SplinterDB. Wang et al. [58] reduce the software overhead for the KVS designed in memory disaggregated architecture. Compared with our work, these studies are oriented towards enhancing diverse key-value stores or full DBMS like Spanner [5], rather than being specifically tailored to the LSM-trees. LSM-tree performance optimization.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4385270105",
+          "citation_marker": "[58]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
       "source": "OPENALEX:W4385270119",
       "target": "OPENALEX:W4402969669",
       "citation_exists": true,
@@ -6186,6 +7304,51 @@
           "citation_marker": "[69]",
           "entity": null,
           "source_path": "data/raw/pdfs/camal.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4388620464",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "EXTENDS",
+      "explanation": "Weak association supported by 2 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 3.6 Smoose: Workload Aware Moose: CITATION",
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES",
+        "EXTENDS"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "3.6 Smoose: Workload Aware Moose",
+          "section_type": "other",
+          "text": "While substantial changes in workload require structural transformation to modify capacities and run numbers at each level. Hence, a lazy strategy [41] and preemptive compaction [16] could be utilized to reduce transformation costs while maintaining competitive overall performance.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4388620464",
+          "citation_marker": "[41]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
+          "confidence": 0.35
+        },
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Dostoevsky [15] enables more flexible compaction by adjusting the number of runs per level, ranging from 1 to the size ratio, for the last and non-last levels. Ruskey[41] proposes a further extended design space by allowing flexible compaction for all levels and utilizes a reinforcement learning algorithm [50] to explore it. K-LSM [27] also considers flexible compactions across levels, while integrating a novel tuning approach to determine the structure for facilitating workload uncertainty. It proposed a general solution that could also empower Smoose to handle workload uncertainty with modified cost model.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4388620464",
+          "citation_marker": "[41]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -6279,7 +7442,7 @@
       "source": "OPENALEX:W4388620464",
       "target": "OPENALEX:W7160292552",
       "citation_exists": true,
-      "relation": "ADDRESSES_LIMITATION",
+      "relation": "EXPLICIT_BASELINE",
       "explanation": "Strong association supported by 8 section-aware full-text evidence atom(s).",
       "evidence": [
         "OPENALEX:W7160292552 1 INTRODUCTION: DIRECT_DISCUSSION",
@@ -6396,6 +7559,37 @@
           "citation_marker": "[64]",
           "entity": null,
           "source_path": "data/raw/pdfs/arcekv.pdf",
+          "confidence": 0.35
+        }
+      ]
+    },
+    {
+      "source": "OPENALEX:W4390748604",
+      "target": "OPENALEX:W4399175309",
+      "citation_exists": true,
+      "relation": "CITES",
+      "explanation": "Weak association supported by 1 section-aware full-text evidence atom(s).",
+      "evidence": [
+        "OPENALEX:W4399175309 5 RELATED WORK: CITATION"
+      ],
+      "confidence": 0.35,
+      "dominant": false,
+      "association_level": "weak",
+      "relation_types": [
+        "CITES"
+      ],
+      "parent_eligible": false,
+      "evidence_details": [
+        {
+          "paper_id": "OPENALEX:W4399175309",
+          "section": "5 RELATED WORK",
+          "section_type": "related_work",
+          "text": "Ruskey[41] proposes a further extended design space by allowing flexible compaction for all levels and utilizes a reinforcement learning algorithm [50] to explore it. K-LSM [27] also considers flexible compactions across levels, while integrating a novel tuning approach to determine the structure for facilitating workload uncertainty. It proposed a general solution that could also empower Smoose to handle workload uncertainty with modified cost model. For example, uncertain workload distribution can be described with KL-Divergence and formulated as W = { ˆ 𝑤 ∈ R3| ˆ 𝑤 ≥ 0, ˆ 𝑤𝑇𝑒 = 1,𝐼𝐾𝐿( ˆ 𝑤,𝑤) ≤ 𝜌}, where 𝜌 describes the divergent range,𝑤 isthetargetworkloadindicatingtheproportionofrangeread(𝑠),update(𝑢),pointlookup(𝑧) at each dimension, and 𝐼𝐾𝐿 is the KL-Divergence between the target workload and the uncertain workload ˆ 𝑤.Accordingly,thecostfunctionof Smooseturnsouttobemax ˆ 𝑤∈W(ˆ 𝑠𝑆+ˆ 𝑢𝑈 +ˆ 𝑧𝑍),which could be minimized using Lagrange Multiplier for deriving the suitable structure.",
+          "role": "CITATION",
+          "cited_paper_id": "OPENALEX:W4390748604",
+          "citation_marker": "[27]",
+          "entity": null,
+          "source_path": "data/raw/pdfs/openalex_w4399175309.pdf",
           "confidence": 0.35
         }
       ]
@@ -6549,7 +7743,7 @@
       "source": "OPENALEX:W4399175309",
       "target": "OPENALEX:W7160292552",
       "citation_exists": true,
-      "relation": "EXTENDS",
+      "relation": "EXPLICIT_BASELINE",
       "explanation": "Strong association supported by 10 section-aware full-text evidence atom(s).",
       "evidence": [
         "OPENALEX:W7160292552 1 INTRODUCTION: DIRECT_DISCUSSION",
@@ -6699,7 +7893,7 @@
       "source": "OPENALEX:W4402969669",
       "target": "OPENALEX:W7160292552",
       "citation_exists": true,
-      "relation": "EXTENDS",
+      "relation": "EXPLICIT_BASELINE",
       "explanation": "Strong association supported by 3 section-aware full-text evidence atom(s).",
       "evidence": [
         "OPENALEX:W7160292552 5 EVALUATION: EXPLICIT_BASELINE",

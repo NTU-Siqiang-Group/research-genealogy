@@ -10,4 +10,5 @@ use_dblp: true
 
 # Optional project overrides can be keyed by canonical paper ID or title.
 # They are still downloaded and title-validated before acceptance.
-overrides: {}
+overrides:
+  OPENALEX:W4399175309: https://siqiangluo.com/docs/moose_corrected_version.pdf

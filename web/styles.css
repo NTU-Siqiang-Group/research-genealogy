@@ -297,7 +297,6 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .time-band { fill: rgba(225,232,227,.2); }
 .year-line { stroke: #d5ddd8; stroke-width: 1; stroke-dasharray: 3 6; }
 .year-label { fill: #8e9a94; font: 600 10px var(--sans); }
-.generation-label { fill: #6f8178; font: 700 9px var(--sans); letter-spacing: .1em; }
 
 .graph-edge { fill: none; stroke-linecap: round; cursor: pointer; transition: opacity .18s, stroke-width .18s; }
 .graph-edge.strong { stroke: var(--strong); stroke-width: 2.2; marker-end: url(#arrow-strong); }
@@ -327,7 +326,8 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .node-year { fill: #7d8983; font: 700 9px var(--sans); letter-spacing: .08em; }
 .node-title { fill: #1d2a24; font: 600 11px/1.2 var(--serif); }
 .compact-card { filter: url(#card-shadow); }
-.compact-title { font-size: 10px; }
+.compact-year { font-size: 10px; }
+.compact-title { font-size: 11px; }
 .node-meta { fill: #8a9690; font: 500 8px var(--sans); }
 .hub-ring { fill: #fff5d8; stroke: var(--gold); stroke-width: 1; }
 .hub-star { fill: #a77d25; font: 700 9px var(--sans); }

@@ -36,6 +36,8 @@ INHERITANCE_CUES = re.compile(
 )
 BASELINE_CUES = re.compile(
     r"\b(baseline(?:s)?|compare(?:s|d|ing)?(?: with| against)?|"
+    r"comparative evaluation(?:s)?(?: with| against)?|"
+    r"comparison(?:s)?(?: with| against| to)?|evaluat(?:e|es|ed|ing) against|"
     r"versus|vs\.?|outperform(?:s|ed|ing)?|following the setting)\b",
     re.IGNORECASE,
 )
@@ -646,12 +648,16 @@ def relation_edges_from_documents(
             (
                 relation
                 for relation in (
+                    # When a paper both names the predecessor directly and
+                    # also evaluates one of its artifacts, show the explicit
+                    # baseline as the primary label and retain the implicit
+                    # dependency in relation_types/evidence_details.
+                    "EXPLICIT_BASELINE",
                     "IMPLICIT_BASELINE",
                     "METHOD_DEPENDENCY",
                     "USES_CONCEPT_FROM",
                     "ADDRESSES_LIMITATION",
                     "EXTENDS",
-                    "EXPLICIT_BASELINE",
                     "CITES",
                 )
                 if relation in relations

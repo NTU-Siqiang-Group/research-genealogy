@@ -1,8 +1,16 @@
+import json
+from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from src.fulltext_retriever import FullTextResolver, HttpPayload, _title_score
+from src.fulltext_retriever import (
+    FullTextResolver,
+    FullTextRetrievalResult,
+    HttpPayload,
+    _title_score,
+    write_retrieval_index,
+)
 from src.schema import PaperRecord
 
 
@@ -106,6 +114,24 @@ class FullTextRetrieverTest(unittest.TestCase):
         self.assertEqual(result.status, "retrieved")
         self.assertEqual(result.selected_provider, "author_homepage")
         self.assertEqual(calls, [homepage, pdf])
+
+    def test_retrieval_index_merges_incremental_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as output_dir:
+            index = Path(output_dir) / "retrieval_index.json"
+            write_retrieval_index(
+                [FullTextRetrievalResult("OPENALEX:W1", "First", "retrieved")],
+                index,
+            )
+            write_retrieval_index(
+                [FullTextRetrievalResult("OPENALEX:W2", "Second", "retrieved")],
+                index,
+            )
+            records = json.loads(index.read_text(encoding="utf-8"))["papers"]
+
+        self.assertEqual(
+            [record["paper_id"] for record in records],
+            ["OPENALEX:W1", "OPENALEX:W2"],
+        )
 
 
 if __name__ == "__main__":

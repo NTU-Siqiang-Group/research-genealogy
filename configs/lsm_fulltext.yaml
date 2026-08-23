@@ -7,6 +7,8 @@ documents:
     pdf_path: data/raw/pdfs/ruskey.pdf
   - paper_id: OPENALEX:W4402969669
     pdf_path: data/raw/pdfs/camal.pdf
+  - paper_id: OPENALEX:W4399175309
+    pdf_path: data/raw/pdfs/openalex_w4399175309.pdf
 
 # Entity provenance lets the extractor recover artifact-level implicit
 # baselines even when an experiment names the artifact rather than its paper.

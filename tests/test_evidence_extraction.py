@@ -178,6 +178,25 @@ class EvidenceExtractionTest(unittest.TestCase):
         self.assertEqual(edge.association_level, "strong")
         self.assertFalse(edge.parent_eligible)
 
+    def test_comparative_evaluation_is_an_explicit_baseline(self) -> None:
+        document = FullTextDocument(
+            paper_id=self.target.paper_id,
+            sections=[
+                FullTextSection(
+                    "4 Evaluation",
+                    "evaluation",
+                    "We make a comparative evaluation against Dostoevsky [17] using identical workload parameters.",
+                )
+            ],
+            reference_ids={17: self.origin.paper_id},
+        )
+        edge = relation_edges_from_documents(
+            [self.origin, self.target], [document]
+        )[0]
+        self.assertEqual(edge.association_level, "strong")
+        self.assertIn("EXPLICIT_BASELINE", edge.relation_types)
+        self.assertEqual(edge.evidence_details[0].role, "EXPLICIT_BASELINE")
+
 
 if __name__ == "__main__":
     unittest.main()

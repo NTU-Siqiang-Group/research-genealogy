@@ -465,7 +465,26 @@ def write_retrieval_index(
 ) -> None:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    records = [result.to_dict() for result in results]
+    # Retrieval is often run for one newly discovered paper at a time.  Keep
+    # the already validated records instead of silently replacing the index.
+    records_by_id: dict[str, dict[str, Any]] = {}
+    if output.exists():
+        try:
+            existing = json.loads(output.read_text(encoding="utf-8"))
+            records_by_id.update(
+                {
+                    record["paper_id"]: record
+                    for record in existing.get("papers", [])
+                    if isinstance(record, dict) and record.get("paper_id")
+                }
+            )
+        except (OSError, json.JSONDecodeError, TypeError):
+            # A malformed cache should not prevent a fresh, auditable index
+            # from being written from the validated results.
+            records_by_id = {}
+    for result in results:
+        records_by_id[result.paper_id] = result.to_dict()
+    records = sorted(records_by_id.values(), key=lambda record: record["paper_id"])
     output.write_text(
         json.dumps(
             {

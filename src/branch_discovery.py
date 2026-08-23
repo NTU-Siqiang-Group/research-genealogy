@@ -97,6 +97,75 @@ def is_technical_lineage_edge(edge: EvolutionEdge) -> bool:
     )
 
 
+def _medium_information_key(edge: EvolutionEdge) -> tuple[Any, ...]:
+    """Sort the most explanatory medium edge first, deterministically."""
+
+    relation_rank = {
+        "METHOD_DEPENDENCY": 6,
+        "ADDRESSES_LIMITATION": 5,
+        "USES_CONCEPT_FROM": 4,
+        "EXTENDS": 3,
+        "EXPLICIT_BASELINE": 2,
+        "CITES": 1,
+    }
+    relations = set(edge.relation_types or [edge.relation])
+    best_relation = max((relation_rank.get(item, 0) for item in relations), default=0)
+    substantive_atoms = [
+        atom
+        for atom in edge.evidence_details
+        if atom.section_type in {"introduction", "preliminary"}
+        and atom.role not in SUPPLEMENTAL_EVIDENCE_ROLES
+    ]
+    direct_atoms = sum(atom.role == "DIRECT_DISCUSSION" for atom in substantive_atoms)
+    return (
+        -best_relation,
+        -direct_atoms,
+        -len(substantive_atoms),
+        -edge.confidence,
+        -len(edge.evidence_details),
+        edge.source,
+        edge.target,
+    )
+
+
+def narrative_skeleton_edges(
+    edges: Iterable[EvolutionEdge],
+) -> list[EvolutionEdge]:
+    """Build the sparse default genealogy without discarding evidence.
+
+    Every strong or dominant edge remains visible.  A paper with no strong
+    incoming edge may receive at most one logical medium predecessor, chosen
+    by relation specificity and auditable Introduction/Preliminary evidence.
+    The remaining medium edges stay available to the evidence view and the
+    selected-paper neighborhood lens.
+    """
+
+    records = list(edges)
+    retained = [
+        edge
+        for edge in records
+        if edge.association_level == "strong" or edge.dominant
+    ]
+    retained_ids = {id(edge) for edge in retained}
+    strong_targets = {
+        edge.target for edge in records if edge.association_level == "strong"
+    }
+    candidates_by_target: dict[str, list[EvolutionEdge]] = defaultdict(list)
+    for edge in records:
+        if (
+            edge.association_level == "medium"
+            and edge.target not in strong_targets
+            and is_technical_lineage_edge(edge)
+        ):
+            candidates_by_target[edge.target].append(edge)
+    for target in sorted(candidates_by_target):
+        selected = min(candidates_by_target[target], key=_medium_information_key)
+        if id(selected) not in retained_ids:
+            retained.append(selected)
+            retained_ids.add(id(selected))
+    return retained
+
+
 def _descendants(root: str, adjacency: dict[str, set[str]]) -> set[str]:
     result: set[str] = set()
     stack = list(adjacency.get(root, set()))
@@ -153,6 +222,7 @@ def discover_auto_branches(
     by_id = {paper.paper_id: paper for paper in records}
     all_edges = list(edges)
     technical_edges = [edge for edge in all_edges if is_technical_lineage_edge(edge)]
+    narrative_edges = narrative_skeleton_edges(all_edges)
     backbone, redundant = transitive_reduction_edges(all_edges)
     adjacency: dict[str, set[str]] = defaultdict(set)
     incoming: dict[str, set[str]] = defaultdict(set)
@@ -246,6 +316,9 @@ def discover_auto_branches(
         "method": "primary_dag_transitive_reduction_and_branch_cones",
         "technical_edge_keys": [
             f"{edge.source}→{edge.target}" for edge in technical_edges
+        ],
+        "narrative_edge_keys": [
+            f"{edge.source}→{edge.target}" for edge in narrative_edges
         ],
         "backbone_edge_keys": [f"{edge.source}→{edge.target}" for edge in backbone],
         "redundant_edge_keys": [f"{edge.source}→{edge.target}" for edge in redundant],

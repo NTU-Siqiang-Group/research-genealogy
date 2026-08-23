@@ -41,6 +41,12 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["redundant_primary_count"], 1)
         self.assertEqual(payload["summary"]["technical_lineage_paper_count"], 20)
         self.assertEqual(payload["summary"]["technical_lineage_edge_count"], 27)
+        self.assertEqual(payload["summary"]["narrative_lineage_paper_count"], 10)
+        self.assertEqual(payload["summary"]["narrative_lineage_edge_count"], 11)
+        self.assertEqual(
+            len(payload["auto_branch_discovery"]["narrative_edge_keys"]),
+            11,
+        )
         self.assertEqual(len(payload["auto_branches"]), 2)
         self.assertEqual(
             {branch["label"] for branch in payload["auto_branches"]},
@@ -111,6 +117,7 @@ class InspectorFrontendTest(unittest.TestCase):
             "toggleSelection",
             "parent_eligible",
             "showGroupEdges",
+            "narrativeEdgeKeys",
             "minimizeLayerCrossings",
             "buildTopologyLayout",
             "buildTimelineLayout",

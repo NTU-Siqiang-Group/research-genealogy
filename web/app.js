@@ -27,6 +27,7 @@
     primaryNodeIds: new Set(),
     backboneEdgeKeys: new Set(),
     technicalEdgeKeys: new Set(),
+    narrativeEdgeKeys: new Set(),
     mode: "lineage",
     layoutMode: "topology",
     levels: new Set(["strong", "medium"]),
@@ -111,6 +112,11 @@
       state.edgeByKey = new Map(state.edges.map((edge) => [edgeKey(edge), edge]));
       state.backboneEdgeKeys = new Set(state.payload.auto_branch_discovery?.backbone_edge_keys || []);
       state.technicalEdgeKeys = new Set(state.payload.auto_branch_discovery?.technical_edge_keys || []);
+      state.narrativeEdgeKeys = new Set(
+        state.payload.auto_branch_discovery?.narrative_edge_keys
+        || state.payload.auto_branch_discovery?.technical_edge_keys
+        || [],
+      );
       state.primaryNodeIds = new Set();
       state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge))).forEach((edge) => {
         state.primaryNodeIds.add(edge.source);
@@ -139,8 +145,8 @@
     $("#group-count").textContent = state.edges.filter((edge) =>
       isResearchGroupEdge(edge) && !state.technicalEdgeKeys.has(edgeKey(edge))
     ).length;
-    $("#lineage-paper-count").textContent = summary.technical_lineage_paper_count ?? "—";
-    $("#lineage-edge-count").textContent = summary.technical_lineage_edge_count ?? "—";
+    $("#lineage-paper-count").textContent = summary.narrative_lineage_paper_count ?? summary.technical_lineage_paper_count ?? "—";
+    $("#lineage-edge-count").textContent = summary.narrative_lineage_edge_count ?? summary.technical_lineage_edge_count ?? "—";
     $("#primary-count").textContent = summary.display_primary_count ?? "—";
     renderBranchList();
   }
@@ -184,6 +190,7 @@
         $$(".mode-button").forEach((item) => item.classList.toggle("active", item === button));
         $("#clear-branch").hidden = true;
         syncLocation();
+        renderInspector();
         renderGraph({ fit: true });
       });
     });
@@ -339,10 +346,19 @@
   function activeGraph() {
     let edges;
     if (state.mode === "lineage") {
+      const selectedPaper = state.selected?.type === "paper" ? state.selected.id : null;
       edges = state.edges.filter((edge) =>
-        state.technicalEdgeKeys.has(edgeKey(edge))
+        state.narrativeEdgeKeys.has(edgeKey(edge))
         && state.levels.has(edge.association_level)
       );
+      if (selectedPaper && state.levels.has("medium")) {
+        const localMedium = state.edges.filter((edge) =>
+          edge.association_level === "medium"
+          && state.technicalEdgeKeys.has(edgeKey(edge))
+          && (edge.source === selectedPaper || edge.target === selectedPaper)
+        );
+        edges = [...new Map([...edges, ...localMedium].map((edge) => [edgeKey(edge), edge])).values()];
+      }
       if (state.showGroupEdges && state.levels.has("medium")) {
         const technicalNodes = new Set();
         edges.forEach((edge) => {
@@ -785,6 +801,7 @@
     renderEdges(graph.edges, state.layout);
     renderNodes(graph.nodes, state.layout);
     updateViewSummary(graph);
+    if (!state.selected) renderInspector();
     const app = $("#app");
     app.dataset.ready = "true";
     app.dataset.mode = state.mode;
@@ -991,8 +1008,8 @@
 
   function updateViewSummary(graph) {
     const copy = {
-      lineage: ["Technical genealogy", "Primary spine plus logical medium and strong relations"],
-      evidence: ["Evidence map", "Logical evidence first; research-group links are optional"],
+      lineage: ["Narrative genealogy", "Sparse strong-relation skeleton; select a paper for medium context"],
+      evidence: ["Evidence map", "Complete medium and strong evidence network"],
       corpus: ["Corpus overview", "All papers; relationship layers remain optional"],
     }[state.mode];
     const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
@@ -1013,7 +1030,10 @@
     if (!state.nodeById.has(paperId)) return;
     const selected = toggleSelection("paper", paperId);
     syncLocation();
-    if (state.mode === "evidence" && state.levels.has("weak")) renderGraph({ fit: false });
+    if (
+      (state.mode === "evidence" && state.levels.has("weak"))
+      || (state.mode === "lineage" && state.levels.has("medium"))
+    ) renderGraph({ fit: false });
     else renderSelectionStyles();
     renderInspector();
     if (selected && center) requestAnimationFrame(() => centerOnPaper(paperId));
@@ -1092,22 +1112,50 @@
 
   function renderEmptyInspector() {
     const summary = state.payload?.summary || {};
+    const graph = activeGraph();
+    const copy = {
+      lineage: {
+        title: "先看稀疏谱系，再按需展开",
+        description: "主谱系保留全部强关联，并只为没有强父边的论文补充一条最有信息量的中关联；选中论文可展开其余逻辑中关联。",
+        guides: [
+          ["先看稀疏叙事骨架", "红色和深绿色是强关联；少量蓝色虚线用于补足没有强父边的论文。"],
+          ["沿深绿色主干追踪", "深绿色边同时是 strong、parent-eligible 和 dominant。"],
+          ["点击论文展开上下文", "只加入与该论文相邻的逻辑中关联；再次点击即可收回。"],
+        ],
+      },
+      evidence: {
+        title: "检查完整的逻辑证据网络",
+        description: "证据图展示全部中、强关联，用于检查主谱系省略了哪些交叉关系以及每条关系的原文依据。",
+        guides: [
+          ["查看全部逻辑关系", "强关联和 Introduction / Preliminary 中关联在这里完整保留。"],
+          ["选择关系检查原文", "右侧会列出 section、角色、置信度和全文证据片段。"],
+          ["弱引用仍然局部展开", "开启弱关联后，只有选中论文相邻的引用会显示，避免全图失控。"],
+        ],
+      },
+      corpus: {
+        title: "从完整语料定位论文",
+        description: "全语料视图用于搜索和检查 150 篇候选论文；它不是主谱系叙事本身。",
+        guides: [
+          ["按发表年份浏览", "全语料默认使用时间布局，便于定位论文所处阶段。"],
+          ["选择论文查看关系", "右侧列出其最强连接、元数据与可用全文。"],
+          ["返回谱系继续追踪", "主谱系负责简洁叙事，证据图负责完整逻辑关系。"],
+        ],
+      },
+    }[state.mode];
     dom.inspector.innerHTML = `<div class="empty-inspector">
       <div class="empty-hero">
         <div class="inspector-eyebrow">HOW TO READ</div>
-        <h2>先看技术谱系，再沿主干追踪</h2>
-        <p>默认图同时展示技术主干和有逻辑内容的中、强关联；纯引用与纯作者重合不会挤进主谱系。</p>
+        <h2>${copy.title}</h2>
+        <p>${copy.description}</p>
       </div>
       <div class="reading-guide">
-        <div class="guide-row"><span class="guide-number">1</span><div><b>先看完整技术谱系</b><small>蓝色虚线是逻辑中关联，红色和深绿色是强关联。</small></div></div>
-        <div class="guide-row"><span class="guide-number">2</span><div><b>沿深绿色主干追踪</b><small>深绿色边同时是 strong、parent-eligible 和 dominant。</small></div></div>
-        <div class="guide-row"><span class="guide-number">3</span><div><b>族谱优先，时间可选</b><small>默认按 DAG 代际留出路由空间；切换“时间”可检查发表年份，Fit 用于全局概览。</small></div></div>
+        ${copy.guides.map(([title, detail], index) => `<div class="guide-row"><span class="guide-number">${index + 1}</span><div><b>${title}</b><small>${detail}</small></div></div>`).join("")}
       </div>
       <div class="run-stats">
         <div class="run-stat"><b>${summary.paper_count ?? "—"}</b><small>Papers</small></div>
-        <div class="run-stat"><b>${summary.technical_lineage_paper_count ?? "—"}</b><small>Lineage papers</small></div>
+        <div class="run-stat"><b>${graph.nodes.length}</b><small>Visible papers</small></div>
         <div class="run-stat"><b>${summary.evidence_atom_count ?? "—"}</b><small>Evidence atoms</small></div>
-        <div class="run-stat"><b>${summary.technical_lineage_edge_count ?? "—"}</b><small>Technical links</small></div>
+        <div class="run-stat"><b>${graph.edges.length}</b><small>Visible links</small></div>
       </div>
       <div class="inspector-section"><h3>CURRENT PRIMARY SPINE</h3><div class="connection-list">${renderPrimaryOverview()}</div></div>
     </div>`;

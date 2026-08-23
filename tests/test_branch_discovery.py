@@ -3,6 +3,7 @@ import unittest
 from src.branch_discovery import (
     discover_auto_branches,
     is_technical_lineage_edge,
+    narrative_skeleton_edges,
     transitive_reduction_edges,
 )
 from src.schema import EvidenceAtom, EvolutionEdge, PaperRecord
@@ -23,6 +24,60 @@ def primary(source, target, confidence=0.9):
 
 
 class BranchDiscoveryTest(unittest.TestCase):
+    def test_narrative_skeleton_keeps_strong_and_one_best_medium_parent(self) -> None:
+        strong = primary("S", "T")
+        ignored_medium = EvolutionEdge(
+            "M",
+            "T",
+            citation_exists=True,
+            relation="ADDRESSES_LIMITATION",
+            relation_types=["ADDRESSES_LIMITATION"],
+            association_level="medium",
+        )
+        generic = EvolutionEdge(
+            "A",
+            "U",
+            citation_exists=True,
+            relation="CITES",
+            relation_types=["CITES"],
+            association_level="medium",
+            evidence_details=[
+                EvidenceAtom(
+                    paper_id="U",
+                    section="Introduction",
+                    section_type="introduction",
+                    text="A is discussed.",
+                    role="DIRECT_DISCUSSION",
+                )
+            ],
+        )
+        explanatory = EvolutionEdge(
+            "B",
+            "U",
+            citation_exists=True,
+            relation="ADDRESSES_LIMITATION",
+            relation_types=["ADDRESSES_LIMITATION"],
+            association_level="medium",
+            evidence_details=[
+                EvidenceAtom(
+                    paper_id="U",
+                    section="Introduction",
+                    section_type="introduction",
+                    text="B leaves an open limitation.",
+                    role="DIRECT_DISCUSSION",
+                )
+            ],
+        )
+
+        selected = narrative_skeleton_edges(
+            [strong, ignored_medium, generic, explanatory]
+        )
+
+        self.assertEqual(
+            {(edge.source, edge.target) for edge in selected},
+            {("S", "T"), ("B", "U")},
+        )
+
     def test_technical_lineage_includes_logical_medium_but_not_group_only(self) -> None:
         logical = EvolutionEdge(
             "A",

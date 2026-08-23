@@ -1,0 +1,33 @@
+# Local, auditable inputs for the first evidence-first LSM genealogy run.
+# Additional landmark PDFs can be appended without changing the extractor.
+documents:
+  - paper_id: OPENALEX:W2798441769
+    pdf_path: data/raw/pdfs/dostoevsky.pdf
+  - paper_id: OPENALEX:W4388620464
+    pdf_path: data/raw/pdfs/ruskey.pdf
+  - paper_id: OPENALEX:W4402969669
+    pdf_path: data/raw/pdfs/camal.pdf
+
+# Entity provenance lets the extractor recover artifact-level implicit
+# baselines even when an experiment names the artifact rather than its paper.
+# FLSM-tree is intentionally not an alias: it is RusKey's distinct extension.
+entity_origins:
+  - entity: Fluid LSM-tree
+    aliases:
+      - Fluid LSM tree
+    paper_id: OPENALEX:W2798441769
+    section: 1 INTRODUCTION
+    source_path: data/raw/pdfs/dostoevsky.pdf
+    evidence_text: >-
+      We further introduce Fluid LSM-tree, a generalization of the entire
+      LSM-tree design space that can be parameterized to assume any existing
+      design.
+  - entity: Lazy Leveling
+    aliases:
+      - Lazy-Leveling
+    paper_id: OPENALEX:W2798441769
+    section: 1 INTRODUCTION
+    source_path: data/raw/pdfs/dostoevsky.pdf
+    evidence_text: >-
+      We introduce Lazy Leveling, a design that removes merge operations from
+      all levels of LSM-tree but the largest.

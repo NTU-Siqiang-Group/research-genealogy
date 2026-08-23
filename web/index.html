@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Evidence-first academic genealogy inspector"
+    />
+    <title>Research Genealogy Inspector</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="app">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div>
+            <div class="eyebrow">EVIDENCE-FIRST MAP</div>
+            <h1>Research Genealogy</h1>
+          </div>
+        </div>
+
+        <div class="topic-block">
+          <span class="status-dot"></span>
+          <div>
+            <div class="topic-label">CURRENT TOPIC</div>
+            <div class="topic-title" id="topic-title">Loading current run…</div>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <div class="run-pill" id="run-pill">—</div>
+          <button class="icon-button" id="help-button" title="如何阅读这张图" aria-label="帮助">
+            ?
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="control-panel" aria-label="Graph controls">
+          <section class="panel-section mode-section">
+            <div class="section-label">INSPECTION MODE</div>
+            <div class="mode-switch" role="tablist" aria-label="检查模式">
+              <button class="mode-button active" data-mode="lineage" role="tab">
+                <span class="mode-icon lineage-icon"></span>
+                <span><b>主谱系</b><small>Primary DAG</small></span>
+              </button>
+              <button class="mode-button" data-mode="evidence" role="tab">
+                <span class="mode-icon evidence-icon"></span>
+                <span><b>证据图</b><small>Evidence map</small></span>
+              </button>
+              <button class="mode-button" data-mode="corpus" role="tab">
+                <span class="mode-icon corpus-icon"></span>
+                <span><b>全语料</b><small>All papers</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel-section search-section">
+            <label class="section-label" for="paper-search">FIND A PAPER</label>
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
+              <input id="paper-search" type="search" placeholder="Title, author or OpenAlex ID" autocomplete="off" />
+              <kbd>⌘K</kbd>
+            </div>
+            <div class="search-results" id="search-results" hidden></div>
+          </section>
+
+          <section class="panel-section relation-section">
+            <div class="section-heading-row">
+              <div class="section-label">RELATION LAYERS</div>
+              <button class="text-button" id="reset-filters">Reset</button>
+            </div>
+            <label class="relation-toggle strong-toggle">
+              <input type="checkbox" data-level="strong" checked />
+              <span class="toggle-check"></span>
+              <span class="relation-swatch"></span>
+              <span class="relation-copy"><b>强关联</b><small>Baseline / method inheritance</small></span>
+              <span class="relation-count" id="strong-count">—</span>
+            </label>
+            <label class="relation-toggle medium-toggle">
+              <input type="checkbox" data-level="medium" checked />
+              <span class="toggle-check"></span>
+              <span class="relation-swatch"></span>
+              <span class="relation-copy"><b>中关联</b><small>Introduction / preliminary</small></span>
+              <span class="relation-count" id="medium-count">—</span>
+            </label>
+            <label class="relation-toggle group-toggle">
+              <input type="checkbox" id="group-layer" />
+              <span class="toggle-check"></span>
+              <span class="relation-swatch"></span>
+              <span class="relation-copy"><b>同研究组补充</b><small>一作 / 二作 / 通讯作者重叠</small></span>
+              <span class="relation-count" id="group-count">—</span>
+            </label>
+            <label class="relation-toggle weak-toggle">
+              <input type="checkbox" data-level="weak" />
+              <span class="toggle-check"></span>
+              <span class="relation-swatch"></span>
+              <span class="relation-copy"><b>弱关联</b><small>Citation / Related Work</small></span>
+              <span class="relation-count" id="weak-count">—</span>
+            </label>
+            <div class="hairball-warning" id="hairball-warning" hidden>
+              <span>!</span> 弱关系很多；开启后建议选中论文局部查看。
+            </div>
+          </section>
+
+          <section class="panel-section benchmark-section">
+            <div class="section-heading-row">
+              <div>
+                <div class="section-label">BENCHMARK LENS</div>
+                <div class="section-hint">人工假设，不等同于模型 cluster</div>
+              </div>
+              <button class="text-button" id="clear-branch" hidden>Clear</button>
+            </div>
+            <div id="branch-list" class="branch-list"></div>
+          </section>
+
+          <section class="panel-section quality-section">
+            <div class="section-label">RUN QUALITY</div>
+            <div class="quality-grid">
+              <div><span id="edge-recall">—</span><small>Gold edges</small></div>
+              <div><span id="forbidden-count">—</span><small>Forbidden</small></div>
+              <div><span id="chronology-count">—</span><small>Time errors</small></div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="graph-stage" aria-label="Interactive research genealogy">
+          <div class="stage-toolbar">
+            <div class="view-summary">
+              <span id="view-title">Primary genealogy</span>
+              <small id="view-subtitle">Dominant lineage + benchmark landmarks</small>
+            </div>
+            <div class="toolbar-actions">
+              <button class="tool-button" id="zoom-out" title="缩小" aria-label="缩小">−</button>
+              <span class="zoom-readout" id="zoom-readout">100%</span>
+              <button class="tool-button" id="zoom-in" title="放大" aria-label="放大">+</button>
+              <button class="tool-button fit-button" id="fit-view" title="适应画布">Fit</button>
+            </div>
+          </div>
+
+          <div class="graph-viewport" id="graph-viewport">
+            <div class="loading-state" id="loading-state">
+              <div class="loading-glyph"><span></span><span></span><span></span></div>
+              <p>正在装载 evidence graph…</p>
+            </div>
+            <svg id="graph-svg" role="img" aria-label="Academic evolution graph" tabindex="0">
+              <defs>
+                <marker id="arrow-strong" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                <marker id="arrow-medium" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                <marker id="arrow-weak" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                <marker id="arrow-dominant" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                <filter id="card-shadow" x="-30%" y="-30%" width="160%" height="180%">
+                  <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#13261f" flood-opacity=".12" />
+                </filter>
+              </defs>
+              <g id="world">
+                <g id="lane-layer"></g>
+                <g id="edge-layer"></g>
+                <g id="node-layer"></g>
+              </g>
+            </svg>
+            <div class="graph-tooltip" id="graph-tooltip" hidden></div>
+            <div class="canvas-note">
+              <span class="gesture-icon">↔</span>
+              Drag to pan · scroll to zoom · click for evidence
+            </div>
+          </div>
+        </section>
+
+        <aside class="inspector-panel" aria-label="Selection details">
+          <div class="inspector-accent"></div>
+          <div id="inspector-content"></div>
+        </aside>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

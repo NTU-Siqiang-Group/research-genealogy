@@ -1,0 +1,79 @@
+topic: LSM-tree structural and workload-adaptive optimization
+corpus_cap: 150
+
+must_find:
+  - key: lsm_tree
+    title: The Log-Structured Merge-Tree (LSM-tree)
+    year: 1996
+  - key: monkey
+    title: "Monkey: Optimal Navigable Key-Value Store"
+    aliases: [Monkey]
+    year: 2017
+  - key: dostoevsky
+    title: "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores via Adaptive Removal of Superfluous Merging"
+    aliases: [Dostoevsky]
+    year: 2018
+  - key: lsm_bush
+    title: The Log-Structured Merge-Bush & the Wacky Continuum
+    year: 2019
+  - key: spooky
+    title: "Spooky: Granulating LSM-Tree Compactions Correctly"
+    aliases: [Spooky]
+    year: 2022
+  - key: ruskey
+    title: "Learning to Optimize LSM-trees: Towards A Reinforcement Learning based Key-Value Store for Dynamic Workloads"
+    aliases: [RusKey]
+    year: 2023
+  - key: moose
+    title: "Structural Designs Meet Optimality: Exploring Optimized LSM-tree Structures in a Colossal Configuration Space"
+    aliases: [Moose]
+    year: 2024
+  - key: camal
+    title: "CAMAL: Optimizing LSM-trees via Active Learning"
+    year: 2024
+  - key: grow_lsm
+    title: "How to Grow an LSM-tree? Towards Bridging the Gap Between Theory and Practice"
+    year: 2025
+  - key: arcekv
+    title: "ArceKV: Towards Workload-driven LSM-compactions for Key-Value Store Under Dynamic Workloads"
+    aliases: [ArceKV]
+    year: 2026
+
+expected_edges:
+  - source: monkey
+    target: dostoevsky
+    relation_family: [EXTENDS, CHANGES_COMPACTION_DESIGN]
+  - source: dostoevsky
+    target: ruskey
+    relation_family: [EXTENDS_DYNAMIC_ADAPTATION, CHANGES_TRANSITION_METHOD]
+  - source: ruskey
+    target: arcekv
+    relation_family: [ADDRESSES_LIMITATION, CHANGES_TRANSITION_MODEL]
+
+expected_hubs: [monkey, dostoevsky, ruskey]
+
+must_not_force:
+  - source: ruskey
+    target: camal
+    reason: Related adaptive/ML work, but not a simple parent-child lineage.
+  - source: camal
+    target: arcekv
+    reason: Topic or lab proximity alone is not technical inheritance.
+  - source: dostoevsky
+    target: spooky
+    reason: A direct parent requires semantic and citation evidence.
+
+branch_hypotheses:
+  - id: analytical_structural
+    label: Classical analytical and structural optimization
+    representatives: [monkey, dostoevsky, lsm_bush]
+  - id: compaction_granularity
+    label: Compaction granularity
+    representatives: [spooky]
+  - id: learned_adaptive
+    label: Learned and workload-adaptive optimization
+    representatives: [ruskey, camal, arcekv]
+    note: RusKey and CAMAL should remain distinguishable sub-branches.
+  - id: expanded_design_space
+    label: Expanded structural configuration space
+    representatives: [moose, grow_lsm]

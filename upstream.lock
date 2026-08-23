@@ -1,0 +1,8 @@
+coi_agent:
+  repo: https://github.com/DAMO-NLP-SG/CoI-Agent
+  commit: ac94317ff2d1997f362747edc2c9e5f0fdc9c450
+
+science_hierarchography:
+  repo: https://github.com/JHU-CLSP/science-hierarchography
+  commit: d67aa6d5f2ba230fe856cef1477c2e9b6c2e0608
+

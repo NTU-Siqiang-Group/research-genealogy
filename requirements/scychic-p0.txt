@@ -1,0 +1,13 @@
+# Reconstructed compatibility set because the pinned upstream has no requirements.txt.
+# Tested with Python 3.12.13 on Intel macOS.
+numpy==1.26.4
+scipy==1.14.1
+scikit-learn==1.5.2
+pandas==3.0.5
+torch==2.2.2
+transformers==4.57.6
+sentence-transformers==6.0.0
+openai==3.3.1
+python-dotenv==1.2.3
+tqdm==4.70.0
+

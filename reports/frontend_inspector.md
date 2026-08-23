@@ -28,8 +28,9 @@ Current payload:
 | --- | --- |
 | DAG, not forced single-parent tree | The default view includes all logical medium/strong links and emphasizes a transitively reduced dominant spine. |
 | Avoid citation hairball | Pure citations and pure authorship overlap stay out of the default technical genealogy. Weak citations are opt-in. |
-| Time-aware evolution | Nodes are layered by publication year from left to right. |
-| Cluster-free layout | Weighted barycentric sweeps reorder nodes within chronological layers to reduce crossings; dominant edges receive the highest layout weight. |
+| Clear default genealogy | Nodes are layered by DAG generation; virtual routing nodes steer long edges through open lanes instead of through paper cards. |
+| Time-aware evolution | A separate timeline layout places publication years on the x-axis and retains at least six vertical lanes. |
+| Cluster-free layout | Weighted barycentric sweeps reorder real and routing nodes to reduce crossings; dominant edges receive the highest layout weight. |
 | Semantic relation levels | Strong, medium, and weak layers have separate filters and visual encodings. |
 | Research-group context | Standalone key-author-overlap links use a thinner dotted treatment and a separate layer that is off by default. Logical evidence remains the primary relation when both kinds exist. |
 | Inspectable relationships | Clicking an edge exposes relation types, confidence, parent eligibility, section, role, citation marker, entity, PDF, and verbatim passage. |
@@ -42,11 +43,11 @@ Current payload:
 - 45 Python unit/integration tests pass, including authorship fallback, DAG
   reduction, automatic branch discovery, payload,
   and UI-contract tests.
-- Headless Chrome loaded the production page successfully. The default lineage
-  and evidence views render 19 labeled compact cards and 23 relations at 100%
-  zoom, centered near Monkey rather than compressed into a whole-graph block.
-- Both corrected views were visually inspected at 1600×1000; horizontal pan,
-  zoom, and the explicit whole-graph `Fit` action remain available.
+- Headless Chrome loaded the production page successfully. The default
+  topology layout renders 19 labeled papers across 5 DAG generations, with
+  long relations routed through intermediate open lanes.
+- The optional timeline was also inspected at 1600×1000 and preserves six
+  vertical slots instead of collapsing the evidence graph to two rows.
 
 Screenshots:
 
@@ -55,7 +56,9 @@ Screenshots:
 - `reports/genealogy_inspector_camal.png` (logical relation plus supplemental
   research-group evidence)
 - `reports/genealogy_inspector_auto_dag.png` (current cluster-free,
-  automatically derived primary view)
+  topology-first primary view)
+- `reports/genealogy_inspector_timeline.png` (optional publication-year view
+  with expanded vertical lanes)
 
 ## Run
 

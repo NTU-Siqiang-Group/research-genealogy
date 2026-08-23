@@ -79,6 +79,8 @@ class InspectorFrontendTest(unittest.TestCase):
             'data-mode="lineage"',
             'data-mode="evidence"',
             'data-mode="corpus"',
+            'data-layout="topology"',
+            'data-layout="timeline"',
         ):
             self.assertIn(required_id, html)
         for behavior in (
@@ -89,6 +91,8 @@ class InspectorFrontendTest(unittest.TestCase):
             "parent_eligible",
             "showGroupEdges",
             "minimizeLayerCrossings",
+            "buildTopologyLayout",
+            "buildTimelineLayout",
             "auto_branches",
         ):
             self.assertIn(behavior, script)

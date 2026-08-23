@@ -255,6 +255,11 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .view-summary span, .view-summary small { display: block; }
 .view-summary span { color: #35433d; font: 600 13px var(--serif); }
 .view-summary small { margin-top: 2px; color: #89958f; font-size: 9px; }
+.layout-switch { display: flex; padding: 3px; background: #e8eeea; border: 1px solid #d6dfd9; border-radius: 8px; }
+.layout-button { min-width: 48px; padding: 5px 9px; color: #728078; background: transparent; border: 0; border-radius: 5px; font-size: 9px; font-weight: 700; cursor: pointer; }
+.layout-button:hover { color: var(--forest); }
+.layout-button.active { color: #fff; background: var(--forest-2); box-shadow: 0 2px 6px rgba(31,75,61,.18); }
+.layout-button:disabled { cursor: not-allowed; opacity: .4; }
 .toolbar-actions { display: flex; align-items: center; gap: 5px; }
 .tool-button { width: 27px; height: 27px; color: #52615a; background: #fff; border: 1px solid #d6ded9; border-radius: 6px; font-weight: 700; }
 .tool-button:hover { border-color: #94aa9f; background: #edf3ef; }
@@ -292,6 +297,7 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .time-band { fill: rgba(225,232,227,.2); }
 .year-line { stroke: #d5ddd8; stroke-width: 1; stroke-dasharray: 3 6; }
 .year-label { fill: #8e9a94; font: 600 10px var(--sans); }
+.generation-label { fill: #6f8178; font: 700 9px var(--sans); letter-spacing: .1em; }
 
 .graph-edge { fill: none; stroke-linecap: round; cursor: pointer; transition: opacity .18s, stroke-width .18s; }
 .graph-edge.strong { stroke: var(--strong); stroke-width: 2.2; marker-end: url(#arrow-strong); }

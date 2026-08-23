@@ -232,9 +232,11 @@ Then open <http://127.0.0.1:4174/web/>. The inspector provides:
   strongest incident relations;
 - edge-level inspection of relation types, parent eligibility, confidence,
   sections, roles, citation markers, entities, and verbatim evidence passages;
-- a cluster-free weighted layered layout: chronology defines horizontal
-  layers, while repeated weighted barycentric sweeps order nodes to reduce
-  crossings, giving primary edges much more influence than supplemental ones;
+- two cluster-free layouts: the default topology view uses DAG generations,
+  weighted barycentric crossing reduction, and invisible routing nodes for
+  long edges; the optional timeline view uses publication years on the x-axis;
+- both layouts reserve multiple vertical lanes even when a year or generation
+  contains only one or two papers, keeping edges from collapsing behind cards;
 - readable initial navigation for larger graphs: compact labeled cards stay at
   a useful scale and the viewport starts around the primary spine; `Fit` is an
   explicit overview action rather than the default;

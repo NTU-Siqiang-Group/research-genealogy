@@ -28,6 +28,7 @@
     backboneEdgeKeys: new Set(),
     technicalEdgeKeys: new Set(),
     mode: "lineage",
+    layoutMode: "topology",
     levels: new Set(["strong", "medium"]),
     showGroupEdges: false,
     selected: null,
@@ -151,6 +152,7 @@
       state.mode = mode;
       $$(".mode-button").forEach((item) => item.classList.toggle("active", item.dataset.mode === mode));
     }
+    if (params.get("layout") === "timeline") state.layoutMode = "timeline";
     const paperId = params.get("paper");
     if (paperId && state.nodeById.has(paperId)) state.selected = { type: "paper", id: paperId };
     const edgePair = params.get("edge")?.split(",");
@@ -163,6 +165,7 @@
   function syncLocation() {
     const params = new URLSearchParams();
     if (state.mode !== "lineage") params.set("mode", state.mode);
+    if (state.layoutMode !== "topology") params.set("layout", state.layoutMode);
     if (state.selected?.type === "paper") params.set("paper", state.selected.id);
     if (state.selected?.type === "edge") {
       const edge = state.edgeByKey.get(state.selected.id);
@@ -180,6 +183,16 @@
         state.fitOnNextRender = true;
         $$(".mode-button").forEach((item) => item.classList.toggle("active", item === button));
         $("#clear-branch").hidden = true;
+        syncLocation();
+        renderGraph({ fit: true });
+      });
+    });
+
+    $$(".layout-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        state.layoutMode = button.dataset.layout;
+        state.fitOnNextRender = true;
         syncLocation();
         renderGraph({ fit: true });
       });
@@ -440,7 +453,22 @@
     }
   }
 
-  function buildLayout(nodes, edges, style) {
+  function layoutMetrics(style, mode) {
+    const metrics = {
+      card: { horizontalStep: 236, verticalStep: 88, left: 135, top: 98 },
+      compact: { horizontalStep: mode === "topology" ? 196 : 174, verticalStep: 66, left: 104, top: 82 },
+      dot: { horizontalStep: mode === "topology" ? 84 : 72, verticalStep: 30, left: 65, top: 70 },
+    };
+    return metrics[style];
+  }
+
+  function distributedRow(index, count, rowSlots) {
+    if (count <= 1) return (rowSlots - 1) / 2;
+    const margin = count === 2 && rowSlots >= 5 ? 1 : 0.5;
+    return margin + index * (rowSlots - 1 - margin * 2) / (count - 1);
+  }
+
+  function buildTimelineLayout(nodes, edges, style) {
     const knownYears = state.nodes.map((node) => node.year).filter(Number.isFinite);
     const fallbackYear = knownYears.length ? Math.max(...knownYears) + 1 : 1;
     const grouped = new Map();
@@ -453,37 +481,142 @@
       .sort((a, b) => a[0] - b[0])
       .map(([year, layerNodes]) => ({
         year: year === fallbackYear ? null : year,
+        label: year === fallbackYear ? "N/A" : String(year),
         nodes: layerNodes.sort((a, b) => a.title.localeCompare(b.title)),
       }));
     minimizeLayerCrossings(layers, edges);
 
-    const metrics = {
-      card: { horizontalStep: 236, verticalStep: 82, left: 135, top: 98 },
-      compact: { horizontalStep: 174, verticalStep: 58, left: 100, top: 76 },
-      dot: { horizontalStep: 72, verticalStep: 28, left: 65, top: 70 },
-    }[style];
+    const metrics = layoutMetrics(style, "timeline");
     const { horizontalStep, verticalStep, left, top } = metrics;
     const maxRows = Math.max(1, ...layers.map((layer) => layer.nodes.length));
+    const rowSlots = Math.max(style === "dot" ? 6 : 6, maxRows);
     const positions = new Map();
-    const yearPositions = new Map();
+    const layerPositions = new Map();
     layers.forEach((layer, layerIndex) => {
       const x = left + layerIndex * horizontalStep;
-      yearPositions.set(layer.year ?? "unknown", x);
-      const offset = (maxRows - layer.nodes.length) / 2;
+      layerPositions.set(layerIndex, x);
       layer.nodes.forEach((node, row) => {
-        positions.set(node.paper_id, { x, y: top + (row + offset) * verticalStep, layer: layerIndex, row });
+        const slot = distributedRow(row, layer.nodes.length, rowSlots);
+        positions.set(node.paper_id, { x, y: top + slot * verticalStep, layer: layerIndex, row: slot });
       });
     });
     return {
       positions,
       layers,
-      yearPositions,
+      layerPositions,
+      routePoints: new Map(),
       width: Math.max(420, left * 2 + Math.max(0, layers.length - 1) * horizontalStep),
-      height: Math.max(300, top * 2 + Math.max(1, maxRows - 1) * verticalStep),
+      height: Math.max(430, top * 2 + (rowSlots - 1) * verticalStep),
       style,
       cards: style !== "dot",
+      mode: "timeline",
       method: "weighted_layered_barycentric",
     };
+  }
+
+  function buildTopologyLayout(nodes, edges, style) {
+    const nodeIds = new Set(nodes.map((node) => node.paper_id));
+    const indegree = new Map(nodes.map((node) => [node.paper_id, 0]));
+    const outgoing = new Map(nodes.map((node) => [node.paper_id, []]));
+    edges.forEach((edge) => {
+      if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) return;
+      outgoing.get(edge.source).push(edge.target);
+      indegree.set(edge.target, indegree.get(edge.target) + 1);
+    });
+    const nodeOrder = (left, right) =>
+      (state.nodeById.get(left)?.year || 9999) - (state.nodeById.get(right)?.year || 9999)
+      || (state.nodeById.get(left)?.title || left).localeCompare(state.nodeById.get(right)?.title || right);
+    const queue = [...nodeIds].filter((id) => indegree.get(id) === 0).sort(nodeOrder);
+    const ranks = new Map(nodes.map((node) => [node.paper_id, 0]));
+    const processed = new Set();
+    while (queue.length) {
+      const current = queue.shift();
+      processed.add(current);
+      (outgoing.get(current) || []).sort(nodeOrder).forEach((target) => {
+        ranks.set(target, Math.max(ranks.get(target), ranks.get(current) + 1));
+        indegree.set(target, indegree.get(target) - 1);
+        if (indegree.get(target) === 0) {
+          queue.push(target);
+          queue.sort(nodeOrder);
+        }
+      });
+    }
+    // Evidence extraction should produce a DAG. Keep a deterministic fallback
+    // for malformed/cyclic overlays so the UI remains inspectable.
+    [...nodeIds].filter((id) => !processed.has(id)).sort(nodeOrder).forEach((id, index) => {
+      ranks.set(id, Math.max(ranks.get(id), index));
+    });
+
+    const maxRank = Math.max(0, ...ranks.values());
+    const layers = Array.from({ length: maxRank + 1 }, (_, index) => ({
+      label: `GEN ${index + 1}`,
+      nodes: [],
+    }));
+    nodes.forEach((node) => layers[ranks.get(node.paper_id)].nodes.push(node));
+    layers.forEach((layer) => layer.nodes.sort((a, b) => nodeOrder(a.paper_id, b.paper_id)));
+
+    const routePoints = new Map();
+    const segments = [];
+    edges.forEach((edge, edgeIndex) => {
+      const sourceRank = ranks.get(edge.source);
+      const targetRank = ranks.get(edge.target);
+      let previous = edge.source;
+      const routeIds = [];
+      if (Number.isFinite(sourceRank) && Number.isFinite(targetRank) && targetRank > sourceRank + 1) {
+        for (let rank = sourceRank + 1; rank < targetRank; rank += 1) {
+          const dummyId = `__route__${edgeIndex}:${rank}`;
+          layers[rank].nodes.push({ paper_id: dummyId, title: "", isDummy: true });
+          segments.push({ ...edge, source: previous, target: dummyId });
+          routeIds.push(dummyId);
+          previous = dummyId;
+        }
+      }
+      segments.push({ ...edge, source: previous, target: edge.target });
+      routePoints.set(edgeKey(edge), routeIds);
+    });
+    minimizeLayerCrossings(layers, segments);
+
+    const { horizontalStep, verticalStep, left, top } = layoutMetrics(style, "topology");
+    const maxRows = Math.max(1, ...layers.map((layer) => layer.nodes.length));
+    const rowSlots = Math.max(6, maxRows);
+    const positions = new Map();
+    const layerPositions = new Map();
+    layers.forEach((layer, layerIndex) => {
+      const x = left + layerIndex * horizontalStep;
+      layerPositions.set(layerIndex, x);
+      const offset = (rowSlots - layer.nodes.length) / 2;
+      layer.nodes.forEach((node, row) => {
+        positions.set(node.paper_id, {
+          x,
+          y: top + (row + offset) * verticalStep,
+          layer: layerIndex,
+          row: row + offset,
+        });
+      });
+    });
+    return {
+      positions,
+      layers,
+      layerPositions,
+      routePoints,
+      width: Math.max(520, left * 2 + Math.max(0, layers.length - 1) * horizontalStep),
+      height: Math.max(500, top * 2 + (rowSlots - 1) * verticalStep),
+      style,
+      cards: style !== "dot",
+      mode: "topology",
+      method: "sugiyama_longest_path_with_virtual_edge_routes",
+    };
+  }
+
+  function effectiveLayoutMode() {
+    return state.mode === "corpus" ? "timeline" : state.layoutMode;
+  }
+
+  function updateLayoutControls(mode) {
+    $$(".layout-button").forEach((button) => {
+      button.classList.toggle("active", button.dataset.layout === mode);
+      button.disabled = state.mode === "corpus" && button.dataset.layout === "topology";
+    });
   }
 
   function renderGraph({ fit = false } = {}) {
@@ -497,17 +630,22 @@
         : graph.nodes.length <= 16 && visibleYearCount <= 10
           ? "compact"
           : "dot";
-    state.layout = buildLayout(graph.nodes, graph.edges, style);
+    const layoutMode = effectiveLayoutMode();
+    state.layout = layoutMode === "topology"
+      ? buildTopologyLayout(graph.nodes, graph.edges, style)
+      : buildTimelineLayout(graph.nodes, graph.edges, style);
+    updateLayoutControls(layoutMode);
     dom.lanes.replaceChildren();
     dom.edges.replaceChildren();
     dom.nodes.replaceChildren();
-    renderTimeGrid(state.layout);
+    renderLayerGrid(state.layout);
     renderEdges(graph.edges, state.layout);
     renderNodes(graph.nodes, state.layout);
     updateViewSummary(graph);
     const app = $("#app");
     app.dataset.ready = "true";
     app.dataset.mode = state.mode;
+    app.dataset.layout = layoutMode;
     app.dataset.visibleNodes = String(graph.nodes.length);
     app.dataset.visibleEdges = String(graph.edges.length);
     renderSelectionStyles();
@@ -519,12 +657,12 @@
     }
   }
 
-  function renderTimeGrid(layout) {
+  function renderLayerGrid(layout) {
     layout.layers.forEach((layer, index) => {
-      const x = layout.yearPositions.get(layer.year ?? "unknown");
+      const x = layout.layerPositions.get(index);
       if (index % 2) {
-        const previousX = index ? layout.yearPositions.get(layout.layers[index - 1].year ?? "unknown") : x;
-        const nextX = index + 1 < layout.layers.length ? layout.yearPositions.get(layout.layers[index + 1].year ?? "unknown") : x;
+        const previousX = index ? layout.layerPositions.get(index - 1) : x;
+        const nextX = index + 1 < layout.layers.length ? layout.layerPositions.get(index + 1) : x;
         dom.lanes.appendChild(svgEl("rect", {
           x: (previousX + x) / 2,
           y: 45,
@@ -534,7 +672,12 @@
         }));
       }
       dom.lanes.appendChild(svgEl("line", { x1: x, y1: 42, x2: x, y2: layout.height - 22, class: "year-line" }));
-      dom.lanes.appendChild(svgEl("text", { x, y: 28, "text-anchor": "middle", class: "year-label" }, layer.year ?? "N/A"));
+      dom.lanes.appendChild(svgEl("text", {
+        x,
+        y: 28,
+        "text-anchor": "middle",
+        class: layout.mode === "topology" ? "generation-label" : "year-label",
+      }, layer.label));
     });
   }
 
@@ -544,6 +687,26 @@
     if (!source || !target) return null;
     const horizontalGap = Math.abs(target.x - source.x);
     const offset = layout.style === "card" ? 91 : layout.style === "compact" ? 70 : 7;
+    const direction = target.x >= source.x ? 1 : -1;
+    const route = (layout.routePoints.get(edgeKey(edge)) || [])
+      .map((id) => layout.positions.get(id))
+      .filter(Boolean);
+    if (route.length) {
+      const points = [
+        { x: source.x + direction * offset, y: source.y },
+        ...route,
+        { x: target.x - direction * offset, y: target.y },
+      ];
+      let d = `M ${points[0].x} ${points[0].y}`;
+      for (let index = 1; index < points.length; index += 1) {
+        const previous = points[index - 1];
+        const current = points[index];
+        const tangent = (current.x - previous.x) * 0.42;
+        d += ` C ${previous.x + tangent} ${previous.y}, ${current.x - tangent} ${current.y}, ${current.x} ${current.y}`;
+      }
+      const middle = points[Math.floor(points.length / 2)];
+      return { d, mx: middle.x, my: middle.y - 7 };
+    }
     if (horizontalGap < 1) {
       const side = source.y <= target.y ? 1 : -1;
       const x = source.x + side * (layout.style === "card" ? 118 : layout.style === "compact" ? 88 : 25);
@@ -554,11 +717,11 @@
         my: (source.y + target.y) / 2,
       };
     }
-    const sx = source.x + offset;
-    const tx = target.x - offset;
+    const sx = source.x + direction * offset;
+    const tx = target.x - direction * offset;
     const span = Math.max(45, Math.abs(tx - sx) * 0.42);
     return {
-      d: `M ${sx} ${source.y} C ${sx + span} ${source.y}, ${tx - span} ${target.y}, ${tx} ${target.y}`,
+      d: `M ${sx} ${source.y} C ${sx + direction * span} ${source.y}, ${tx - direction * span} ${target.y}, ${tx} ${target.y}`,
       mx: (sx + tx) / 2,
       my: (source.y + target.y) / 2 - 5,
     };
@@ -683,8 +846,11 @@
       corpus: ["Corpus overview", "All papers; relationship layers remain optional"],
     }[state.mode];
     const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
+    const layoutCopy = effectiveLayoutMode() === "topology"
+      ? "DAG generations · routed long edges"
+      : "publication timeline · expanded vertical lanes";
     $("#view-title").textContent = branch ? branch.label : copy[0];
-    $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} visible relations · weighted layered layout${branch ? " · auto path focus" : ""}`;
+    $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} relations · ${layoutCopy}${branch ? " · auto path focus" : ""}`;
   }
 
   function selectPaper(paperId, center) {
@@ -779,7 +945,7 @@
       <div class="reading-guide">
         <div class="guide-row"><span class="guide-number">1</span><div><b>先看完整技术谱系</b><small>蓝色虚线是逻辑中关联，红色和深绿色是强关联。</small></div></div>
         <div class="guide-row"><span class="guide-number">2</span><div><b>沿深绿色主干追踪</b><small>深绿色边同时是 strong、parent-eligible 和 dominant。</small></div></div>
-        <div class="guide-row"><span class="guide-number">3</span><div><b>平移查看，不强塞一屏</b><small>较大的图默认保持可读字号；拖动画布浏览，Fit 才会显示全局概览。</small></div></div>
+        <div class="guide-row"><span class="guide-number">3</span><div><b>族谱优先，时间可选</b><small>默认按 DAG 代际留出路由空间；切换“时间”可检查发表年份，Fit 用于全局概览。</small></div></div>
       </div>
       <div class="run-stats">
         <div class="run-stat"><b>${summary.paper_count ?? "—"}</b><small>Papers</small></div>

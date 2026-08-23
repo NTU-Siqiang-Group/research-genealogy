@@ -20,9 +20,10 @@ from the evidence DAG:
 
 The UI deliberately does not expose expert benchmarks or legacy solution
 clusters, and neither is included in its generated payload. Its default layout
-is chronological and cluster-free. The initial viewport keeps labeled cards at
-a readable size and centers the primary spine; use `Fit` only for a compressed
-whole-graph overview.
+is a cluster-free DAG-generation view with explicit long-edge routing. A
+second layout places publication years on the x-axis while retaining expanded
+vertical lanes. The initial viewport keeps labeled cards at a readable size;
+use `Fit` for a compressed whole-graph overview.
 
 Run the UI from the repository root:
 

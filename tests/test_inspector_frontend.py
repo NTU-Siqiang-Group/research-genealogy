@@ -108,6 +108,7 @@ class InspectorFrontendTest(unittest.TestCase):
             "renderEvidenceAtom",
             "renderSearchResults",
             "fitView",
+            "toggleSelection",
             "parent_eligible",
             "showGroupEdges",
             "minimizeLayerCrossings",

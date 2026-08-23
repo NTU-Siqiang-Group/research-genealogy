@@ -1003,24 +1003,30 @@
     $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} relations · ${layoutCopy}${branch ? " · auto path focus" : ""}`;
   }
 
+  function toggleSelection(type, id) {
+    const alreadySelected = state.selected?.type === type && state.selected.id === id;
+    state.selected = alreadySelected ? null : { type, id };
+    return !alreadySelected;
+  }
+
   function selectPaper(paperId, center) {
     if (!state.nodeById.has(paperId)) return;
-    state.selected = { type: "paper", id: paperId };
+    const selected = toggleSelection("paper", paperId);
     syncLocation();
     if (state.mode === "evidence" && state.levels.has("weak")) renderGraph({ fit: false });
     else renderSelectionStyles();
     renderInspector();
-    if (center) requestAnimationFrame(() => centerOnPaper(paperId));
-    if (window.innerWidth <= 920) $(".inspector-panel").classList.add("open");
+    if (selected && center) requestAnimationFrame(() => centerOnPaper(paperId));
+    if (selected && window.innerWidth <= 920) $(".inspector-panel").classList.add("open");
   }
 
   function selectEdge(key) {
     if (!state.edgeByKey.has(key)) return;
-    state.selected = { type: "edge", id: key };
+    const selected = toggleSelection("edge", key);
     syncLocation();
     renderSelectionStyles();
     renderInspector();
-    if (window.innerWidth <= 920) $(".inspector-panel").classList.add("open");
+    if (selected && window.innerWidth <= 920) $(".inspector-panel").classList.add("open");
   }
 
   function renderSelectionStyles() {

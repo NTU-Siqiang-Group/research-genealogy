@@ -26,6 +26,7 @@
     edgeByKey: new Map(),
     primaryNodeIds: new Set(),
     backboneEdgeKeys: new Set(),
+    technicalEdgeKeys: new Set(),
     mode: "lineage",
     levels: new Set(["strong", "medium"]),
     showGroupEdges: false,
@@ -108,6 +109,7 @@
       state.nodeById = new Map(state.nodes.map((node) => [node.paper_id, node]));
       state.edgeByKey = new Map(state.edges.map((edge) => [edgeKey(edge), edge]));
       state.backboneEdgeKeys = new Set(state.payload.auto_branch_discovery?.backbone_edge_keys || []);
+      state.technicalEdgeKeys = new Set(state.payload.auto_branch_discovery?.technical_edge_keys || []);
       state.primaryNodeIds = new Set();
       state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge))).forEach((edge) => {
         state.primaryNodeIds.add(edge.source);
@@ -129,12 +131,16 @@
     $("#topic-title").textContent = state.payload.topic;
     $("#run-pill").textContent = `${summary.paper_count} papers · ${summary.edge_count} relations`;
     $("#strong-count").textContent = summary.association_level_counts.strong;
-    $("#medium-count").textContent = summary.association_level_counts.medium;
+    $("#medium-count").textContent = state.edges.filter((edge) =>
+      edge.association_level === "medium" && state.technicalEdgeKeys.has(edgeKey(edge))
+    ).length;
     $("#weak-count").textContent = summary.association_level_counts.weak;
-    $("#group-count").textContent = state.edges.filter((edge) => edge.relation === "SAME_RESEARCH_GROUP").length;
+    $("#group-count").textContent = state.edges.filter((edge) =>
+      isResearchGroupEdge(edge) && !state.technicalEdgeKeys.has(edgeKey(edge))
+    ).length;
+    $("#lineage-paper-count").textContent = summary.technical_lineage_paper_count ?? "—";
+    $("#lineage-edge-count").textContent = summary.technical_lineage_edge_count ?? "—";
     $("#primary-count").textContent = summary.display_primary_count ?? "—";
-    $("#auto-branch-count").textContent = summary.auto_branch_count ?? "—";
-    $("#redundant-count").textContent = summary.redundant_primary_count ?? "—";
     renderBranchList();
   }
 
@@ -246,7 +252,7 @@
     dom.viewport.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("resize", () => state.layout && fitView());
+    window.addEventListener("resize", () => state.layout && initialView());
 
     dom.inspector.addEventListener("click", (event) => {
       const edgeButton = event.target.closest("[data-edge-key]");
@@ -320,11 +326,28 @@
   function activeGraph() {
     let edges;
     if (state.mode === "lineage") {
-      edges = state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge)));
+      edges = state.edges.filter((edge) =>
+        state.technicalEdgeKeys.has(edgeKey(edge))
+        && state.levels.has(edge.association_level)
+      );
+      if (state.showGroupEdges && state.levels.has("medium")) {
+        const technicalNodes = new Set();
+        edges.forEach((edge) => {
+          technicalNodes.add(edge.source);
+          technicalNodes.add(edge.target);
+        });
+        const supplemental = state.edges.filter((edge) =>
+          isResearchGroupEdge(edge)
+          && !state.technicalEdgeKeys.has(edgeKey(edge))
+          && technicalNodes.has(edge.source)
+          && technicalNodes.has(edge.target)
+        );
+        edges = [...edges, ...supplemental];
+      }
     } else {
       edges = state.edges.filter((edge) => state.levels.has(edge.association_level));
       if (!state.showGroupEdges) {
-        edges = edges.filter((edge) => edge.relation !== "SAME_RESEARCH_GROUP");
+        edges = edges.filter((edge) => !isResearchGroupEdge(edge) || state.technicalEdgeKeys.has(edgeKey(edge)));
       }
       if (state.mode === "evidence" && state.levels.has("weak")) {
         const selectedPaper = state.selected?.type === "paper" ? state.selected.id : null;
@@ -335,7 +358,12 @@
     const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
     if (branch) {
       const members = new Set(branch.paper_ids);
-      edges = edges.filter((edge) => members.has(edge.source) && members.has(edge.target));
+      const pathEdges = new Set(branch.edge_keys || []);
+      edges = edges.filter((edge) =>
+        members.has(edge.source)
+        && members.has(edge.target)
+        && (state.mode !== "lineage" || pathEdges.has(edgeKey(edge)))
+      );
     }
 
     const ids = new Set();
@@ -348,6 +376,12 @@
       if (selectedEdge) { ids.add(selectedEdge.source); ids.add(selectedEdge.target); }
     }
     return { edges, nodes: state.nodes.filter((node) => ids.has(node.paper_id)) };
+  }
+
+  function isResearchGroupEdge(edge) {
+    return edge.relation === "SAME_RESEARCH_GROUP"
+      || (edge.relation_types || []).includes("SAME_RESEARCH_GROUP")
+      || (edge.relation_types || []).includes("KEY_AUTHOR_OVERLAP");
   }
 
   function layoutEdgeWeight(edge) {
@@ -406,7 +440,7 @@
     }
   }
 
-  function buildLayout(nodes, edges, cards) {
+  function buildLayout(nodes, edges, style) {
     const knownYears = state.nodes.map((node) => node.year).filter(Number.isFinite);
     const fallbackYear = knownYears.length ? Math.max(...knownYears) + 1 : 1;
     const grouped = new Map();
@@ -423,10 +457,12 @@
       }));
     minimizeLayerCrossings(layers, edges);
 
-    const horizontalStep = cards ? 236 : 72;
-    const verticalStep = cards ? 82 : 28;
-    const left = cards ? 135 : 65;
-    const top = cards ? 98 : 70;
+    const metrics = {
+      card: { horizontalStep: 236, verticalStep: 82, left: 135, top: 98 },
+      compact: { horizontalStep: 174, verticalStep: 58, left: 100, top: 76 },
+      dot: { horizontalStep: 72, verticalStep: 28, left: 65, top: 70 },
+    }[style];
+    const { horizontalStep, verticalStep, left, top } = metrics;
     const maxRows = Math.max(1, ...layers.map((layer) => layer.nodes.length));
     const positions = new Map();
     const yearPositions = new Map();
@@ -444,7 +480,8 @@
       yearPositions,
       width: Math.max(420, left * 2 + Math.max(0, layers.length - 1) * horizontalStep),
       height: Math.max(300, top * 2 + Math.max(1, maxRows - 1) * verticalStep),
-      cards,
+      style,
+      cards: style !== "dot",
       method: "weighted_layered_barycentric",
     };
   }
@@ -453,10 +490,14 @@
     if (!state.payload) return;
     const graph = activeGraph();
     const visibleYearCount = new Set(graph.nodes.map((node) => node.year).filter(Number.isFinite)).size;
-    const cards = state.mode === "lineage"
-      ? graph.nodes.length <= 24
-      : graph.nodes.length <= 16 && visibleYearCount <= 10;
-    state.layout = buildLayout(graph.nodes, graph.edges, cards);
+    const style = graph.nodes.length <= 8
+      ? "card"
+      : graph.nodes.length <= 40 && state.mode !== "corpus"
+        ? "compact"
+        : graph.nodes.length <= 16 && visibleYearCount <= 10
+          ? "compact"
+          : "dot";
+    state.layout = buildLayout(graph.nodes, graph.edges, style);
     dom.lanes.replaceChildren();
     dom.edges.replaceChildren();
     dom.nodes.replaceChildren();
@@ -471,7 +512,7 @@
     app.dataset.visibleEdges = String(graph.edges.length);
     renderSelectionStyles();
     if (fit || state.fitOnNextRender) {
-      requestAnimationFrame(fitView);
+      requestAnimationFrame(initialView);
       state.fitOnNextRender = false;
     } else {
       applyTransform();
@@ -502,10 +543,10 @@
     const target = layout.positions.get(edge.target);
     if (!source || !target) return null;
     const horizontalGap = Math.abs(target.x - source.x);
-    const offset = layout.cards ? 91 : 7;
+    const offset = layout.style === "card" ? 91 : layout.style === "compact" ? 70 : 7;
     if (horizontalGap < 1) {
       const side = source.y <= target.y ? 1 : -1;
-      const x = source.x + side * (layout.cards ? 118 : 25);
+      const x = source.x + side * (layout.style === "card" ? 118 : layout.style === "compact" ? 88 : 25);
       const attach = source.x + side * offset;
       return {
         d: `M ${attach} ${source.y} C ${x} ${source.y}, ${x} ${target.y}, ${attach} ${target.y}`,
@@ -571,7 +612,8 @@
         "aria-label": `${node.title}, ${node.year || "unknown year"}`,
       });
       group.style.setProperty("--node-color", primary ? BRANCH_COLORS[branchIndex % BRANCH_COLORS.length] : "#91a098");
-      if (layout.cards) renderNodeCard(group, node, { primary, hub });
+      if (layout.style === "card") renderNodeCard(group, node, { primary, hub });
+      else if (layout.style === "compact") renderNodeCompact(group, node, { primary, hub });
       else renderNodeDot(group, node, { primary, hub });
       group.addEventListener("click", (event) => { event.stopPropagation(); selectPaper(node.paper_id, false); });
       group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectPaper(node.paper_id, false); });
@@ -594,6 +636,18 @@
     lines.forEach((line, index) => group.appendChild(svgEl("text", { x: -77, y: 3 + index * 13, class: "node-title" }, line)));
     const citations = node.metadata?.citation_count;
     group.appendChild(svgEl("text", { x: 78, y: 20, "text-anchor": "end", class: "node-meta" }, `${citations ?? 0} cites`));
+  }
+
+  function renderNodeCompact(group, node, { primary, hub }) {
+    group.appendChild(svgEl("rect", { x: -70, y: -22, width: 140, height: 44, class: "node-card compact-card" }));
+    group.appendChild(svgEl("rect", { x: -70, y: -22, width: 4, height: 44, rx: 2, class: "node-accent" }));
+    group.appendChild(svgEl("text", { x: -58, y: -8, class: "node-year" }, node.year || "N/A"));
+    if (hub) {
+      group.append(svgEl("circle", { cx: 57, cy: -8, r: 7, class: "hub-ring" }), svgEl("text", { x: 57, y: -5, "text-anchor": "middle", class: "hub-star" }, "✦"));
+    } else if (primary) {
+      group.appendChild(svgEl("text", { x: 61, y: -6, "text-anchor": "end", class: "node-meta" }, "SPINE"));
+    }
+    group.appendChild(svgEl("text", { x: -58, y: 10, class: "node-title compact-title" }, shortTitle(paperDisplayTitle(node), 22)));
   }
 
   function renderNodeDot(group, node, { primary, hub }) {
@@ -624,7 +678,7 @@
 
   function updateViewSummary(graph) {
     const copy = {
-      lineage: ["Primary genealogy", "Transitively reduced evidence DAG"],
+      lineage: ["Technical genealogy", "Primary spine plus logical medium and strong relations"],
       evidence: ["Evidence map", "Logical evidence first; research-group links are optional"],
       corpus: ["Corpus overview", "All papers; relationship layers remain optional"],
     }[state.mode];
@@ -719,21 +773,21 @@
     dom.inspector.innerHTML = `<div class="empty-inspector">
       <div class="empty-hero">
         <div class="inspector-eyebrow">HOW TO READ</div>
-        <h2>从主干开始，逐层展开证据</h2>
-        <p>这不是 citation dashboard。默认图只显示能够成为技术谱系的关系；点击节点或连线检查原文证据。</p>
+        <h2>先看技术谱系，再沿主干追踪</h2>
+        <p>默认图同时展示技术主干和有逻辑内容的中、强关联；纯引用与纯作者重合不会挤进主谱系。</p>
       </div>
       <div class="reading-guide">
-        <div class="guide-row"><span class="guide-number">1</span><div><b>先看深绿色主谱系</b><small>这些边同时是 strong、parent-eligible 和 dominant。</small></div></div>
-        <div class="guide-row"><span class="guide-number">2</span><div><b>查看自动发现路径</b><small>它们来自约简后的主谱系 DAG，并可在分叉或汇合处重叠。</small></div></div>
-        <div class="guide-row"><span class="guide-number">3</span><div><b>切换到“证据图”</b><small>展开被默认隐藏的直接强边、中关联及其原文证据。</small></div></div>
+        <div class="guide-row"><span class="guide-number">1</span><div><b>先看完整技术谱系</b><small>蓝色虚线是逻辑中关联，红色和深绿色是强关联。</small></div></div>
+        <div class="guide-row"><span class="guide-number">2</span><div><b>沿深绿色主干追踪</b><small>深绿色边同时是 strong、parent-eligible 和 dominant。</small></div></div>
+        <div class="guide-row"><span class="guide-number">3</span><div><b>平移查看，不强塞一屏</b><small>较大的图默认保持可读字号；拖动画布浏览，Fit 才会显示全局概览。</small></div></div>
       </div>
       <div class="run-stats">
         <div class="run-stat"><b>${summary.paper_count ?? "—"}</b><small>Papers</small></div>
-        <div class="run-stat"><b>${summary.display_primary_count ?? "—"}</b><small>Display edges</small></div>
+        <div class="run-stat"><b>${summary.technical_lineage_paper_count ?? "—"}</b><small>Lineage papers</small></div>
         <div class="run-stat"><b>${summary.evidence_atom_count ?? "—"}</b><small>Evidence atoms</small></div>
-        <div class="run-stat"><b>${summary.auto_branch_count ?? "—"}</b><small>Auto paths</small></div>
+        <div class="run-stat"><b>${summary.technical_lineage_edge_count ?? "—"}</b><small>Technical links</small></div>
       </div>
-      <div class="inspector-section"><h3>CURRENT PRIMARY MAP</h3><div class="connection-list">${renderPrimaryOverview()}</div></div>
+      <div class="inspector-section"><h3>CURRENT PRIMARY SPINE</h3><div class="connection-list">${renderPrimaryOverview()}</div></div>
     </div>`;
   }
 
@@ -765,7 +819,7 @@
       <h2 class="inspector-title">${escapeHtml(node.title)}</h2>
       <p class="inspector-subtitle">${escapeHtml([node.venue, node.year].filter(Boolean).join(" · ") || "Publication metadata unavailable")}</p>
       <div class="detail-chips">
-        ${state.primaryNodeIds.has(node.paper_id) ? `<span class="detail-chip parent">Primary DAG</span>` : ""}
+        ${state.primaryNodeIds.has(node.paper_id) ? `<span class="detail-chip parent">Primary spine</span>` : ""}
         ${node.metadata?.is_hub ? `<span class="detail-chip parent">Hub · ${Number(node.metadata.hub_score || 0).toFixed(2)}</span>` : ""}
         <span class="detail-chip">${connections.length} in-corpus relations</span>
         ${fulltext ? `<span class="detail-chip parent">Full text verified</span>` : ""}
@@ -872,6 +926,40 @@
       scale,
       x: (rect.width - state.layout.width * scale) / 2,
       y: (rect.height - state.layout.height * scale) / 2,
+    };
+    applyTransform();
+  }
+
+  function initialView() {
+    if (!state.layout) return;
+    const rect = dom.viewport.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const comfortablyFits = state.layout.width <= rect.width * 1.08
+      && state.layout.height <= rect.height * 1.08;
+    if (comfortablyFits) {
+      fitView();
+      return;
+    }
+    const scale = Math.min(1, Math.max(0.72, (rect.height - 80) / state.layout.height));
+    let anchorId = state.selected?.type === "paper" ? state.selected.id : null;
+    if (!anchorId && state.selected?.type === "edge") {
+      anchorId = state.edgeByKey.get(state.selected.id)?.source || null;
+    }
+    if (!anchorId) {
+      const backbone = state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge)));
+      const targets = new Set(backbone.map((edge) => edge.target));
+      anchorId = backbone
+        .map((edge) => edge.source)
+        .filter((paperId) => !targets.has(paperId))
+        .sort((left, right) => (state.nodeById.get(left)?.year || 9999) - (state.nodeById.get(right)?.year || 9999))[0]
+        || backbone[0]?.source
+        || null;
+    }
+    const anchor = anchorId ? state.layout.positions.get(anchorId) : null;
+    state.transform = {
+      scale,
+      x: anchor ? rect.width * 0.2 - anchor.x * scale : 24,
+      y: Math.max(24, (rect.height - state.layout.height * scale) / 2),
     };
     applyTransform();
   }

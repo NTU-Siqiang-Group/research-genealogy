@@ -13,8 +13,11 @@ Current payload:
 
 - 150 papers;
 - 1,315 relations: 1,171 weak, 135 medium, and 9 strong;
+- 19 papers and 23 logical medium/strong relations in the default technical
+  genealogy;
 - 4 dominant, parent-eligible genealogy edges, reduced to 3 default display
-  edges while retaining the redundant direct edge for evidence inspection;
+  spine edges while retaining the redundant direct edge for evidence
+  inspection;
 - 527 full-text and authorship evidence atoms;
 - 1 automatically discovered `Monkey → ArceKV` lineage path;
 - CAMAL and ArceKV full-text provenance and PDF links.
@@ -23,8 +26,8 @@ Current payload:
 
 | Goal requirement | Inspector behavior |
 | --- | --- |
-| DAG, not forced single-parent tree | All dominant evidence remains available; the default display uses transitive reduction to avoid redundant arcs. |
-| Avoid citation hairball | The default view shows only the reduced primary backbone. Weak citations are opt-in. |
+| DAG, not forced single-parent tree | The default view includes all logical medium/strong links and emphasizes a transitively reduced dominant spine. |
+| Avoid citation hairball | Pure citations and pure authorship overlap stay out of the default technical genealogy. Weak citations are opt-in. |
 | Time-aware evolution | Nodes are layered by publication year from left to right. |
 | Cluster-free layout | Weighted barycentric sweeps reorder nodes within chronological layers to reduce crossings; dominant edges receive the highest layout weight. |
 | Semantic relation levels | Strong, medium, and weak layers have separate filters and visual encodings. |
@@ -36,15 +39,14 @@ Current payload:
 ## Verification
 
 - `node --check web/app.js` passes.
-- 44 Python unit/integration tests pass, including authorship fallback, DAG
+- 45 Python unit/integration tests pass, including authorship fallback, DAG
   reduction, automatic branch discovery, payload,
   and UI-contract tests.
 - Headless Chrome loaded the production page successfully. The default lineage
-  view renders 4 papers and the 3-edge reduced backbone; evidence mode renders
-  its larger chronological graph in compact-node mode rather than shrinking
-  full cards until they are unreadable.
-- The reduced primary view and the expanded evidence view were visually
-  inspected at 1600×1000.
+  and evidence views render 19 labeled compact cards and 23 relations at 100%
+  zoom, centered near Monkey rather than compressed into a whole-graph block.
+- Both corrected views were visually inspected at 1600×1000; horizontal pan,
+  zoom, and the explicit whole-graph `Fit` action remain available.
 
 Screenshots:
 

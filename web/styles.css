@@ -320,6 +320,8 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .node-accent { fill: var(--node-color, #668e7a); }
 .node-year { fill: #7d8983; font: 700 9px var(--sans); letter-spacing: .08em; }
 .node-title { fill: #1d2a24; font: 600 11px/1.2 var(--serif); }
+.compact-card { filter: url(#card-shadow); }
+.compact-title { font-size: 10px; }
 .node-meta { fill: #8a9690; font: 500 8px var(--sans); }
 .hub-ring { fill: #fff5d8; stroke: var(--gold); stroke-width: 1; }
 .hub-star { fill: #a77d25; font: 700 9px var(--sans); }

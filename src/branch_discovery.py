@@ -9,6 +9,17 @@ from typing import Any, Iterable
 from .schema import EvolutionEdge, PaperRecord
 
 
+SUPPLEMENTAL_RELATIONS = {
+    "CITES",
+    "KEY_AUTHOR_OVERLAP",
+    "SAME_RESEARCH_GROUP",
+}
+SUPPLEMENTAL_EVIDENCE_ROLES = {
+    "CITATION",
+    "KEY_AUTHOR_OVERLAP",
+}
+
+
 def _short_title(title: str, limit: int = 34) -> str:
     plain = re.sub(r"<[^>]+>", "", title).strip()
     prefix = plain.split(":", 1)[0].strip()
@@ -69,6 +80,23 @@ def transitive_reduction_edges(
     return kept, redundant
 
 
+def is_technical_lineage_edge(edge: EvolutionEdge) -> bool:
+    """Return whether an edge carries technical, non-authorship lineage evidence."""
+
+    if edge.association_level == "strong":
+        return True
+    if edge.association_level != "medium":
+        return False
+    relation_types = set(edge.relation_types or [edge.relation])
+    if relation_types - SUPPLEMENTAL_RELATIONS:
+        return True
+    return any(
+        atom.role not in SUPPLEMENTAL_EVIDENCE_ROLES
+        and atom.section_type not in {"metadata", "related_work", "references"}
+        for atom in edge.evidence_details
+    )
+
+
 def _descendants(root: str, adjacency: dict[str, set[str]]) -> set[str]:
     result: set[str] = set()
     stack = list(adjacency.get(root, set()))
@@ -123,7 +151,9 @@ def discover_auto_branches(
 
     records = list(papers)
     by_id = {paper.paper_id: paper for paper in records}
-    backbone, redundant = transitive_reduction_edges(edges)
+    all_edges = list(edges)
+    technical_edges = [edge for edge in all_edges if is_technical_lineage_edge(edge)]
+    backbone, redundant = transitive_reduction_edges(all_edges)
     adjacency: dict[str, set[str]] = defaultdict(set)
     incoming: dict[str, set[str]] = defaultdict(set)
     edge_by_pair = {(edge.source, edge.target): edge for edge in backbone}
@@ -214,6 +244,9 @@ def discover_auto_branches(
 
     return {
         "method": "primary_dag_transitive_reduction_and_branch_cones",
+        "technical_edge_keys": [
+            f"{edge.source}→{edge.target}" for edge in technical_edges
+        ],
         "backbone_edge_keys": [f"{edge.source}→{edge.target}" for edge in backbone],
         "redundant_edge_keys": [f"{edge.source}→{edge.target}" for edge in redundant],
         "branches": branches,

@@ -1,7 +1,11 @@
 import unittest
 
-from src.branch_discovery import discover_auto_branches, transitive_reduction_edges
-from src.schema import EvolutionEdge, PaperRecord
+from src.branch_discovery import (
+    discover_auto_branches,
+    is_technical_lineage_edge,
+    transitive_reduction_edges,
+)
+from src.schema import EvidenceAtom, EvolutionEdge, PaperRecord
 
 
 def primary(source, target, confidence=0.9):
@@ -19,6 +23,44 @@ def primary(source, target, confidence=0.9):
 
 
 class BranchDiscoveryTest(unittest.TestCase):
+    def test_technical_lineage_includes_logical_medium_but_not_group_only(self) -> None:
+        logical = EvolutionEdge(
+            "A",
+            "B",
+            citation_exists=True,
+            relation="CITES",
+            relation_types=["CITES"],
+            association_level="medium",
+            evidence_details=[
+                EvidenceAtom(
+                    paper_id="B",
+                    section="Introduction",
+                    section_type="introduction",
+                    text="We build on A.",
+                    role="DIRECT_DISCUSSION",
+                )
+            ],
+        )
+        group_only = EvolutionEdge(
+            "A",
+            "C",
+            citation_exists=True,
+            relation="SAME_RESEARCH_GROUP",
+            relation_types=["CITES", "KEY_AUTHOR_OVERLAP", "SAME_RESEARCH_GROUP"],
+            association_level="medium",
+            evidence_details=[
+                EvidenceAtom(
+                    paper_id="C",
+                    section="Authorship metadata",
+                    section_type="metadata",
+                    text="Same first author.",
+                    role="KEY_AUTHOR_OVERLAP",
+                )
+            ],
+        )
+        self.assertTrue(is_technical_lineage_edge(logical))
+        self.assertFalse(is_technical_lineage_edge(group_only))
+
     def test_transitive_reduction_hides_redundant_display_edge(self) -> None:
         edges = [primary("A", "B"), primary("B", "C"), primary("A", "C")]
         kept, redundant = transitive_reduction_edges(edges)

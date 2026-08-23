@@ -47,7 +47,7 @@
             <div class="mode-switch" role="tablist" aria-label="检查模式">
               <button class="mode-button active" data-mode="lineage" role="tab">
                 <span class="mode-icon lineage-icon"></span>
-                <span><b>主谱系</b><small>Primary DAG</small></span>
+                <span><b>主谱系</b><small>Technical lineage</small></span>
               </button>
               <button class="mode-button" data-mode="evidence" role="tab">
                 <span class="mode-icon evidence-icon"></span>
@@ -122,9 +122,9 @@
           <section class="panel-section quality-section">
             <div class="section-label">DAG STRUCTURE</div>
             <div class="quality-grid">
-              <div><span id="primary-count">—</span><small>Display edges</small></div>
-              <div><span id="auto-branch-count">—</span><small>Auto paths</small></div>
-              <div><span id="redundant-count">—</span><small>Hidden redundant</small></div>
+              <div><span id="lineage-paper-count">—</span><small>Lineage papers</small></div>
+              <div><span id="lineage-edge-count">—</span><small>Technical links</small></div>
+              <div><span id="primary-count">—</span><small>Primary spine</small></div>
             </div>
           </section>
         </aside>
@@ -132,8 +132,8 @@
         <section class="graph-stage" aria-label="Interactive research genealogy">
           <div class="stage-toolbar">
             <div class="view-summary">
-              <span id="view-title">Primary genealogy</span>
-              <small id="view-subtitle">Transitively reduced evidence DAG</small>
+              <span id="view-title">Technical genealogy</span>
+              <small id="view-subtitle">Primary spine plus supporting logical relations</small>
             </div>
             <div class="toolbar-actions">
               <button class="tool-button" id="zoom-out" title="缩小" aria-label="缩小">−</button>

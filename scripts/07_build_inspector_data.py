@@ -88,6 +88,13 @@ def build_inspector_payload(
         for edge in edges
         if isinstance(edge, dict)
     )
+    technical_edge_keys = set(auto_discovery["technical_edge_keys"])
+    technical_node_ids = {
+        endpoint
+        for edge in dag_model.edges
+        if f"{edge.source}→{edge.target}" in technical_edge_keys
+        for endpoint in (edge.source, edge.target)
+    }
 
     return {
         "schema_version": 1,
@@ -108,10 +115,13 @@ def build_inspector_payload(
             "display_primary_count": len(auto_discovery["backbone_edge_keys"]),
             "redundant_primary_count": len(auto_discovery["redundant_edge_keys"]),
             "auto_branch_count": len(auto_discovery["branches"]),
+            "technical_lineage_edge_count": len(technical_edge_keys),
+            "technical_lineage_paper_count": len(technical_node_ids),
         },
         "dag": visualization_dag,
         "auto_branch_discovery": {
             "method": auto_discovery["method"],
+            "technical_edge_keys": auto_discovery["technical_edge_keys"],
             "backbone_edge_keys": auto_discovery["backbone_edge_keys"],
             "redundant_edge_keys": auto_discovery["redundant_edge_keys"],
         },

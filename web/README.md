@@ -12,14 +12,17 @@ Regenerate `data/inspector.json` whenever the DAG or evidence changes:
 ```
 
 The generated payload combines the DAG and retrieval artifacts, then derives
-a display backbone and automatic path lenses from the primary evidence DAG:
+the full technical genealogy, a display backbone, and automatic path lenses
+from the evidence DAG:
 
 - `data/output/evidence_first/evolution_dag.json`
 - `data/raw/fulltext/retrieval_index.json`
 
 The UI deliberately does not expose expert benchmarks or legacy solution
 clusters, and neither is included in its generated payload. Its default layout
-is chronological and cluster-free.
+is chronological and cluster-free. The initial viewport keeps labeled cards at
+a readable size and centers the primary spine; use `Fit` only for a compressed
+whole-graph overview.
 
 Run the UI from the repository root:
 

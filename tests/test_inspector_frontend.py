@@ -39,6 +39,8 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertNotIn("gold", payload["source_artifacts"])
         self.assertEqual(payload["summary"]["display_primary_count"], 3)
         self.assertEqual(payload["summary"]["redundant_primary_count"], 1)
+        self.assertEqual(payload["summary"]["technical_lineage_paper_count"], 19)
+        self.assertEqual(payload["summary"]["technical_lineage_edge_count"], 23)
         self.assertEqual(len(payload["auto_branches"]), 1)
         self.assertEqual(payload["auto_branches"][0]["label"], "Monkey → ArceKV")
         self.assertIn("OPENALEX:W7160292552", payload["fulltext"])

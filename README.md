@@ -217,8 +217,9 @@ PDFs:
 
 Then open <http://127.0.0.1:4174/web/>. The inspector provides:
 
-- a default transitively reduced primary DAG that keeps redundant direct-edge
-  evidence inspectable without drawing every redundant arc;
+- a default 19-paper technical genealogy containing logical medium and strong
+  relations, with the transitively reduced dominant DAG emphasized as its
+  primary spine;
 - automatically discovered lineage components and branch cones derived only
   from strong, parent-eligible evidence edges;
 - separate evidence-map and all-corpus modes;
@@ -234,6 +235,9 @@ Then open <http://127.0.0.1:4174/web/>. The inspector provides:
 - a cluster-free weighted layered layout: chronology defines horizontal
   layers, while repeated weighted barycentric sweeps order nodes to reduce
   crossings, giving primary edges much more influence than supplemental ones;
+- readable initial navigation for larger graphs: compact labeled cards stay at
+  a useful scale and the viewport starts around the primary spine; `Fit` is an
+  explicit overview action rather than the default;
 - shareable `?paper=...`, `?edge=source,target`, and `?mode=evidence` URLs.
 
 Legacy Run-B solution clusters remain in archived experiment artifacts but no

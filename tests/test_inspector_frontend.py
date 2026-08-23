@@ -93,6 +93,7 @@ class InspectorFrontendTest(unittest.TestCase):
             "minimizeLayerCrossings",
             "buildTopologyLayout",
             "buildTimelineLayout",
+            "assignRouteLanes",
             "auto_branches",
         ):
             self.assertIn(behavior, script)

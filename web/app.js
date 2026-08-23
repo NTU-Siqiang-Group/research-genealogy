@@ -468,6 +468,49 @@
     return margin + index * (rowSlots - 1 - margin * 2) / (count - 1);
   }
 
+  function assignRouteLanes(edges, routePoints, positions, layers, metrics, rowSlots, style) {
+    const result = new Map();
+    const laneUsage = new Map();
+    const halfHeight = style === "card" ? 29 : style === "compact" ? 22 : 8;
+    const candidates = [];
+    for (let slot = 0; slot <= rowSlots - 1; slot += 0.5) {
+      candidates.push(metrics.top + slot * metrics.verticalStep);
+    }
+    [...edges]
+      .sort((left, right) => (routePoints.get(edgeKey(right))?.length || 0) - (routePoints.get(edgeKey(left))?.length || 0))
+      .forEach((edge) => {
+        const routeIds = routePoints.get(edgeKey(edge)) || [];
+        if (!routeIds.length) return;
+        const crossedLayers = new Set(
+          routeIds.map((id) => positions.get(id)?.layer).filter(Number.isFinite)
+        );
+        const source = positions.get(edge.source);
+        const target = positions.get(edge.target);
+        const preferred = ((source?.y || 0) + (target?.y || 0)) / 2;
+        let best = null;
+        candidates.forEach((candidate) => {
+          let collisions = 0;
+          crossedLayers.forEach((layerIndex) => {
+            (layers[layerIndex]?.nodes || []).forEach((node) => {
+              if (node.isDummy) return;
+              const position = positions.get(node.paper_id);
+              if (position && Math.abs(position.y - candidate) < halfHeight + 11) collisions += 1;
+            });
+          });
+          const laneKey = Math.round(candidate / (metrics.verticalStep / 2));
+          const score = collisions * 10000
+            + Math.abs(candidate - preferred)
+            + (laneUsage.get(laneKey) || 0) * 42;
+          if (!best || score < best.score) best = { y: candidate, laneKey, score };
+        });
+        if (best) {
+          result.set(edgeKey(edge), best.y);
+          laneUsage.set(best.laneKey, (laneUsage.get(best.laneKey) || 0) + 1);
+        }
+      });
+    return result;
+  }
+
   function buildTimelineLayout(nodes, edges, style) {
     const knownYears = state.nodes.map((node) => node.year).filter(Number.isFinite);
     const fallbackYear = knownYears.length ? Math.max(...knownYears) + 1 : 1;
@@ -484,7 +527,35 @@
         label: year === fallbackYear ? "N/A" : String(year),
         nodes: layerNodes.sort((a, b) => a.title.localeCompare(b.title)),
       }));
-    minimizeLayerCrossings(layers, edges);
+    const layerByPaper = new Map();
+    layers.forEach((layer, index) => {
+      layer.nodes.forEach((node) => layerByPaper.set(node.paper_id, index));
+    });
+    const routePoints = new Map();
+    const segments = [];
+    edges.forEach((edge, edgeIndex) => {
+      const sourceLayer = layerByPaper.get(edge.source);
+      const targetLayer = layerByPaper.get(edge.target);
+      let previous = edge.source;
+      const routeIds = [];
+      if (Number.isFinite(sourceLayer) && Number.isFinite(targetLayer) && sourceLayer !== targetLayer) {
+        const direction = targetLayer >= sourceLayer ? 1 : -1;
+        for (
+          let layerIndex = sourceLayer + direction;
+          layerIndex !== targetLayer;
+          layerIndex += direction
+        ) {
+          const dummyId = `__time_route__${edgeIndex}:${layerIndex}`;
+          layers[layerIndex].nodes.push({ paper_id: dummyId, title: "", isDummy: true });
+          segments.push({ ...edge, source: previous, target: dummyId });
+          routeIds.push(dummyId);
+          previous = dummyId;
+        }
+      }
+      segments.push({ ...edge, source: previous, target: edge.target });
+      routePoints.set(edgeKey(edge), routeIds);
+    });
+    minimizeLayerCrossings(layers, segments);
 
     const metrics = layoutMetrics(style, "timeline");
     const { horizontalStep, verticalStep, left, top } = metrics;
@@ -500,17 +571,27 @@
         positions.set(node.paper_id, { x, y: top + slot * verticalStep, layer: layerIndex, row: slot });
       });
     });
+    const routeLanes = assignRouteLanes(
+      edges,
+      routePoints,
+      positions,
+      layers,
+      metrics,
+      rowSlots,
+      style,
+    );
     return {
       positions,
       layers,
       layerPositions,
-      routePoints: new Map(),
+      routePoints,
+      routeLanes,
       width: Math.max(420, left * 2 + Math.max(0, layers.length - 1) * horizontalStep),
       height: Math.max(430, top * 2 + (rowSlots - 1) * verticalStep),
       style,
       cards: style !== "dot",
       mode: "timeline",
-      method: "weighted_layered_barycentric",
+      method: "chronological_layers_with_virtual_edge_routes",
     };
   }
 
@@ -594,11 +675,21 @@
         });
       });
     });
+    const routeLanes = assignRouteLanes(
+      edges,
+      routePoints,
+      positions,
+      layers,
+      { horizontalStep, verticalStep, left, top },
+      rowSlots,
+      style,
+    );
     return {
       positions,
       layers,
       layerPositions,
       routePoints,
+      routeLanes,
       width: Math.max(520, left * 2 + Math.max(0, layers.length - 1) * horizontalStep),
       height: Math.max(500, top * 2 + (rowSlots - 1) * verticalStep),
       style,
@@ -688,8 +779,12 @@
     const horizontalGap = Math.abs(target.x - source.x);
     const offset = layout.style === "card" ? 91 : layout.style === "compact" ? 70 : 7;
     const direction = target.x >= source.x ? 1 : -1;
+    const routeLane = layout.routeLanes?.get(edgeKey(edge));
     const route = (layout.routePoints.get(edgeKey(edge)) || [])
-      .map((id) => layout.positions.get(id))
+      .map((id) => {
+        const position = layout.positions.get(id);
+        return position && Number.isFinite(routeLane) ? { ...position, y: routeLane } : position;
+      })
       .filter(Boolean);
     if (route.length) {
       const points = [

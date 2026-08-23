@@ -31,6 +31,7 @@ Current payload:
 | Clear default genealogy | Nodes are layered by DAG generation; virtual routing nodes steer long edges through open lanes instead of through paper cards. |
 | Time-aware evolution | A separate timeline layout places publication years on the x-axis and retains at least six vertical lanes. |
 | Cluster-free layout | Weighted barycentric sweeps reorder real and routing nodes to reduce crossings; dominant edges receive the highest layout weight. |
+| Avoid false intermediate ancestry | Long-edge tracks are collision-checked against real cards in every crossed layer and remain horizontally stable between their endpoints. |
 | Semantic relation levels | Strong, medium, and weak layers have separate filters and visual encodings. |
 | Research-group context | Standalone key-author-overlap links use a thinner dotted treatment and a separate layer that is off by default. Logical evidence remains the primary relation when both kinds exist. |
 | Inspectable relationships | Clicking an edge exposes relation types, confidence, parent eligibility, section, role, citation marker, entity, PDF, and verbatim passage. |

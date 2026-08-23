@@ -31,8 +31,16 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["paper_count"], 150)
         self.assertEqual(payload["summary"]["edge_count"], 1315)
         self.assertEqual(payload["summary"]["evidence_atom_count"], 527)
-        self.assertEqual(len(payload["landmarks"]), 10)
-        self.assertEqual(len(payload["benchmark_branches"]), 4)
+        self.assertNotIn("landmarks", payload)
+        self.assertNotIn("benchmark_branches", payload)
+        self.assertNotIn("evaluation", payload)
+        self.assertNotIn("branches", payload["dag"])
+        self.assertNotIn("cluster_paths", payload["dag"]["nodes"][0])
+        self.assertNotIn("gold", payload["source_artifacts"])
+        self.assertEqual(payload["summary"]["display_primary_count"], 3)
+        self.assertEqual(payload["summary"]["redundant_primary_count"], 1)
+        self.assertEqual(len(payload["auto_branches"]), 1)
+        self.assertEqual(payload["auto_branches"][0]["label"], "Monkey → ArceKV")
         self.assertIn("OPENALEX:W7160292552", payload["fulltext"])
 
         ruskey_arce = next(
@@ -78,6 +86,8 @@ class InspectorFrontendTest(unittest.TestCase):
             "fitView",
             "parent_eligible",
             "showGroupEdges",
+            "minimizeLayerCrossings",
+            "auto_branches",
         ):
             self.assertIn(behavior, script)
 

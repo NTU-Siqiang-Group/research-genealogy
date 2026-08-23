@@ -10,9 +10,10 @@ from pathlib import Path
 import sys
 from typing import Any
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.branch_discovery import discover_auto_branches  # noqa: E402
+from src.schema import EvolutionDAG  # noqa: E402
 
 
 def _read_json(path: str | Path) -> dict[str, Any]:
@@ -25,61 +26,37 @@ def _read_json(path: str | Path) -> dict[str, Any]:
 def build_inspector_payload(
     *,
     dag_path: str | Path,
-    evaluation_path: str | Path,
     retrieval_path: str | Path,
-    gold_path: str | Path,
+    topic: str | None = None,
 ) -> dict[str, Any]:
     dag = _read_json(dag_path)
-    evaluation = _read_json(evaluation_path)
     retrieval = _read_json(retrieval_path)
-    gold = yaml.safe_load(Path(gold_path).read_text(encoding="utf-8")) or {}
 
     nodes = dag.get("nodes") or []
     edges = dag.get("edges") or []
-    by_id = {
-        str(node["paper_id"]): node
+    dag_model = EvolutionDAG.from_dict(dag)
+    auto_discovery = discover_auto_branches(dag_model.nodes, dag_model.edges)
+    run_metadata = dict(dag.get("run_metadata") or {})
+
+    # Legacy semantic clusters may remain in the inference artifact for
+    # offline experiments, but they are neither an input to branch discovery
+    # nor part of the product-facing visualization contract.
+    visualization_dag = dict(dag)
+    visualization_dag["nodes"] = [
+        {
+            key: value
+            for key, value in node.items()
+            if key not in {"cluster_paths", "semantic_profile"}
+        }
         for node in nodes
-        if isinstance(node, dict) and node.get("paper_id")
+        if isinstance(node, dict)
+    ]
+    visualization_dag.pop("branches", None)
+    visualization_dag["run_metadata"] = {
+        key: value
+        for key, value in run_metadata.items()
+        if key not in {"axis", "clustering_role"}
     }
-    resolved = evaluation.get("resolved_gold_keys") or {}
-
-    landmarks = []
-    for item in gold.get("must_find") or []:
-        key = str(item.get("key") or "")
-        paper_id = resolved.get(key)
-        node = by_id.get(str(paper_id))
-        aliases = [str(alias) for alias in item.get("aliases") or []]
-        landmarks.append(
-            {
-                "key": key,
-                "paper_id": paper_id,
-                "title": (node or {}).get("title") or item.get("title"),
-                "aliases": aliases,
-                "short_name": aliases[0] if aliases else None,
-                "year": (node or {}).get("year") or item.get("year"),
-                "found": paper_id in by_id,
-            }
-        )
-
-    evaluation_branches = {
-        str(item.get("id")): item for item in evaluation.get("branches") or []
-    }
-    benchmark_branches = []
-    for item in gold.get("branch_hypotheses") or []:
-        branch_id = str(item.get("id") or "")
-        representative_keys = [str(key) for key in item.get("representatives") or []]
-        benchmark_branches.append(
-            {
-                "branch_id": branch_id,
-                "label": item.get("label") or branch_id,
-                "note": item.get("note") or "",
-                "representative_keys": representative_keys,
-                "paper_ids": [
-                    resolved[key] for key in representative_keys if key in resolved
-                ],
-                "evaluation": evaluation_branches.get(branch_id, {}),
-            }
-        )
 
     fulltext = {}
     for item in retrieval.get("papers") or []:
@@ -115,12 +92,12 @@ def build_inspector_payload(
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "topic": gold.get("topic") or "Academic research genealogy",
+        "topic": topic
+        or run_metadata.get("topic")
+        or "Academic research genealogy",
         "source_artifacts": {
             "dag": str(dag_path),
-            "evaluation": str(evaluation_path),
             "retrieval": str(retrieval_path),
-            "gold": str(gold_path),
         },
         "summary": {
             "paper_count": len(nodes),
@@ -128,11 +105,17 @@ def build_inspector_payload(
             "dominant_count": dominant_count,
             "evidence_atom_count": evidence_atom_count,
             "association_level_counts": level_counts,
+            "display_primary_count": len(auto_discovery["backbone_edge_keys"]),
+            "redundant_primary_count": len(auto_discovery["redundant_edge_keys"]),
+            "auto_branch_count": len(auto_discovery["branches"]),
         },
-        "dag": dag,
-        "evaluation": evaluation,
-        "landmarks": landmarks,
-        "benchmark_branches": benchmark_branches,
+        "dag": visualization_dag,
+        "auto_branch_discovery": {
+            "method": auto_discovery["method"],
+            "backbone_edge_keys": auto_discovery["backbone_edge_keys"],
+            "redundant_edge_keys": auto_discovery["redundant_edge_keys"],
+        },
+        "auto_branches": auto_discovery["branches"],
         "fulltext": fulltext,
     }
 
@@ -143,20 +126,19 @@ def main() -> int:
         "--dag", default="data/output/evidence_first/evolution_dag.json"
     )
     parser.add_argument(
-        "--evaluation", default="data/output/evidence_first/evaluation.json"
-    )
-    parser.add_argument(
         "--retrieval", default="data/raw/fulltext/retrieval_index.json"
     )
-    parser.add_argument("--gold", default="configs/lsm_gold.yaml")
+    parser.add_argument(
+        "--topic",
+        help="Optional display topic; otherwise use DAG metadata or a generic label",
+    )
     parser.add_argument("--output", default="web/data/inspector.json")
     args = parser.parse_args()
 
     payload = build_inspector_payload(
         dag_path=args.dag,
-        evaluation_path=args.evaluation,
         retrieval_path=args.retrieval,
-        gold_path=args.gold,
+        topic=args.topic,
     )
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

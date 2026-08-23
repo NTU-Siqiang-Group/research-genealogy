@@ -24,7 +24,8 @@
     edges: [],
     nodeById: new Map(),
     edgeByKey: new Map(),
-    landmarkIds: new Set(),
+    primaryNodeIds: new Set(),
+    backboneEdgeKeys: new Set(),
     mode: "lineage",
     levels: new Set(["strong", "medium"]),
     showGroupEdges: false,
@@ -62,8 +63,7 @@
 
   function paperDisplayTitle(node) {
     if (!node) return "Unknown paper";
-    const landmark = state.payload?.landmarks?.find((item) => item.paper_id === node.paper_id);
-    return landmark?.short_name || node.title;
+    return node.title;
   }
 
   function formatPct(value) {
@@ -107,9 +107,12 @@
       state.edges = state.payload.dag.edges || [];
       state.nodeById = new Map(state.nodes.map((node) => [node.paper_id, node]));
       state.edgeByKey = new Map(state.edges.map((edge) => [edgeKey(edge), edge]));
-      state.landmarkIds = new Set(
-        (state.payload.landmarks || []).filter((item) => item.found).map((item) => item.paper_id),
-      );
+      state.backboneEdgeKeys = new Set(state.payload.auto_branch_discovery?.backbone_edge_keys || []);
+      state.primaryNodeIds = new Set();
+      state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge))).forEach((edge) => {
+        state.primaryNodeIds.add(edge.source);
+        state.primaryNodeIds.add(edge.target);
+      });
       populateChrome();
       applyInitialLocation();
       dom.loading.hidden = true;
@@ -122,16 +125,16 @@
   }
 
   function populateChrome() {
-    const { summary, evaluation } = state.payload;
+    const { summary } = state.payload;
     $("#topic-title").textContent = state.payload.topic;
     $("#run-pill").textContent = `${summary.paper_count} papers · ${summary.edge_count} relations`;
     $("#strong-count").textContent = summary.association_level_counts.strong;
     $("#medium-count").textContent = summary.association_level_counts.medium;
     $("#weak-count").textContent = summary.association_level_counts.weak;
     $("#group-count").textContent = state.edges.filter((edge) => edge.relation === "SAME_RESEARCH_GROUP").length;
-    $("#edge-recall").textContent = formatPct(evaluation.metrics?.expected_dominant_edge_recall);
-    $("#forbidden-count").textContent = evaluation.metrics?.forbidden_edge_count ?? "—";
-    $("#chronology-count").textContent = evaluation.metrics?.chronology_violation_count ?? "—";
+    $("#primary-count").textContent = summary.display_primary_count ?? "—";
+    $("#auto-branch-count").textContent = summary.auto_branch_count ?? "—";
+    $("#redundant-count").textContent = summary.redundant_primary_count ?? "—";
     renderBranchList();
   }
 
@@ -255,12 +258,17 @@
 
   function renderBranchList() {
     dom.branchList.innerHTML = "";
-    (state.payload?.benchmark_branches || []).forEach((branch, index) => {
+    const branches = state.payload?.auto_branches || [];
+    if (!branches.length) {
+      dom.branchList.innerHTML = `<p class="section-empty">Primary evidence DAG 暂未形成可识别路径。</p>`;
+      return;
+    }
+    branches.forEach((branch, index) => {
       const button = document.createElement("button");
       button.className = `branch-card${state.branchFocus === branch.branch_id ? " active" : ""}`;
       button.style.setProperty("--branch-color", BRANCH_COLORS[index % BRANCH_COLORS.length]);
-      const coverage = branch.evaluation?.paper_coverage;
-      button.innerHTML = `<b>${escapeHtml(branch.label)}</b><small>${branch.paper_ids.length} landmarks · ${formatPct(coverage)} coverage</small>`;
+      const kind = branch.kind === "branch_cone" ? "branch cone" : "lineage path";
+      button.innerHTML = `<b>${escapeHtml(branch.label)}</b><small>${branch.paper_ids.length} papers · ${kind} · ${formatPct(branch.confidence)}</small>`;
       button.addEventListener("click", () => {
         state.branchFocus = state.branchFocus === branch.branch_id ? null : branch.branch_id;
         $("#clear-branch").hidden = !state.branchFocus;
@@ -312,7 +320,7 @@
   function activeGraph() {
     let edges;
     if (state.mode === "lineage") {
-      edges = state.edges.filter((edge) => edge.dominant);
+      edges = state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge)));
     } else {
       edges = state.edges.filter((edge) => state.levels.has(edge.association_level));
       if (!state.showGroupEdges) {
@@ -324,15 +332,14 @@
       }
     }
 
-    const branch = (state.payload.benchmark_branches || []).find((item) => item.branch_id === state.branchFocus);
+    const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
     if (branch) {
-      const seeds = new Set(branch.paper_ids);
-      edges = edges.filter((edge) => seeds.has(edge.source) || seeds.has(edge.target));
+      const members = new Set(branch.paper_ids);
+      edges = edges.filter((edge) => members.has(edge.source) && members.has(edge.target));
     }
 
     const ids = new Set();
     if (state.mode === "corpus" && !branch) state.nodes.forEach((node) => ids.add(node.paper_id));
-    if (state.mode !== "corpus" && !branch) state.landmarkIds.forEach((id) => ids.add(id));
     if (branch) branch.paper_ids.forEach((id) => ids.add(id));
     edges.forEach((edge) => { ids.add(edge.source); ids.add(edge.target); });
     if (state.selected?.type === "paper") ids.add(state.selected.id);
@@ -343,72 +350,117 @@
     return { edges, nodes: state.nodes.filter((node) => ids.has(node.paper_id)) };
   }
 
-  function laneKey(node) {
-    return node.cluster_paths?.[state.payload.dag.run_metadata?.axis || "solution"]?.[0] ?? "unclustered";
+  function layoutEdgeWeight(edge) {
+    if (edge.dominant) return 100;
+    if (edge.association_level === "strong") return 30;
+    if (edge.relation === "SAME_RESEARCH_GROUP") return 2;
+    if (edge.association_level === "medium") return 10;
+    return 1;
   }
 
-  function buildLayout(nodes, cards) {
-    const knownYears = state.nodes.map((node) => node.year).filter(Number.isFinite);
-    const visibleYears = [...new Set(nodes.map((node) => node.year).filter(Number.isFinite))].sort((a, b) => a - b);
-    const minYear = Math.min(...knownYears);
-    const maxYear = Math.max(...knownYears);
-    // Preserve chronology while compressing long inactive periods.  A literal
-    // 1996–2026 scale made the evidence cards unreadable in the default view.
-    const yearStep = cards ? 82 : 54;
-    const left = 118;
-    const right = 145;
-    const top = 56;
-    const yearPositions = new Map();
-    let yearCursor = left;
-    visibleYears.forEach((year, index) => {
-      if (index) {
-        const gap = Math.max(1, Math.min(3, year - visibleYears[index - 1]));
-        yearCursor += gap * yearStep;
-      }
-      yearPositions.set(year, yearCursor);
+  function minimizeLayerCrossings(layers, edges) {
+    const layerById = new Map();
+    layers.forEach((layer, index) => layer.nodes.forEach((node) => layerById.set(node.paper_id, index)));
+    const incoming = new Map();
+    const outgoing = new Map();
+    edges.forEach((edge) => {
+      if (!layerById.has(edge.source) || !layerById.has(edge.target)) return;
+      const weighted = { id: edge.source, weight: layoutEdgeWeight(edge) };
+      const reverse = { id: edge.target, weight: layoutEdgeWeight(edge) };
+      if (!incoming.has(edge.target)) incoming.set(edge.target, []);
+      if (!outgoing.has(edge.source)) outgoing.set(edge.source, []);
+      incoming.get(edge.target).push(weighted);
+      outgoing.get(edge.source).push(reverse);
     });
-    const laneOrder = [...new Set(nodes.map(laneKey))].sort((a, b) => {
-      const preferred = ["3", "1", "0", "2", "unclustered"];
-      return (preferred.indexOf(a) < 0 ? 99 : preferred.indexOf(a)) - (preferred.indexOf(b) < 0 ? 99 : preferred.indexOf(b)) || String(a).localeCompare(String(b));
-    });
-    const positions = new Map();
-    const lanes = [];
-    let currentY = top;
 
-    laneOrder.forEach((key, laneIndex) => {
-      const laneNodes = nodes.filter((node) => laneKey(node) === key).sort((a, b) => (a.year || maxYear) - (b.year || maxYear) || a.title.localeCompare(b.title));
-      const trackEnds = [];
-      const collisionDistance = cards ? 192 : 24;
-      laneNodes.forEach((node) => {
-        const x = yearPositions.get(node.year) ?? yearCursor + yearStep;
-        let track = trackEnds.findIndex((lastX) => x - lastX >= collisionDistance);
-        if (track < 0) { track = trackEnds.length; trackEnds.push(-Infinity); }
-        trackEnds[track] = x;
-        positions.set(node.paper_id, { x, y: currentY + 60 + track * (cards ? 76 : 27), lane: laneIndex, track });
+    function normalizedPositions() {
+      const result = new Map();
+      layers.forEach((layer) => {
+        const denominator = Math.max(1, layer.nodes.length - 1);
+        layer.nodes.forEach((node, index) => result.set(node.paper_id, index / denominator));
       });
-      const laneHeight = Math.max(cards ? 150 : 112, 95 + Math.max(1, trackEnds.length) * (cards ? 76 : 27));
-      lanes.push({ key, y: currentY, height: laneHeight, index: laneIndex });
-      currentY += laneHeight + 12;
-    });
+      return result;
+    }
 
+    function sweep(start, end, step, neighbors) {
+      const positions = normalizedPositions();
+      for (let layerIndex = start; layerIndex !== end; layerIndex += step) {
+        const layer = layers[layerIndex];
+        const previous = new Map(layer.nodes.map((node, index) => [node.paper_id, index]));
+        layer.nodes.sort((left, right) => {
+          const score = (node) => {
+            const candidates = (neighbors.get(node.paper_id) || []).filter((item) => positions.has(item.id));
+            if (!candidates.length) return previous.get(node.paper_id);
+            const total = candidates.reduce((sum, item) => sum + item.weight, 0);
+            const mean = candidates.reduce((sum, item) => sum + positions.get(item.id) * item.weight, 0) / total;
+            return mean * Math.max(1, layer.nodes.length - 1);
+          };
+          return score(left) - score(right) || previous.get(left.paper_id) - previous.get(right.paper_id);
+        });
+      }
+    }
+
+    for (let iteration = 0; iteration < 6; iteration += 1) {
+      sweep(1, layers.length, 1, incoming);
+      sweep(layers.length - 2, -1, -1, outgoing);
+    }
+  }
+
+  function buildLayout(nodes, edges, cards) {
+    const knownYears = state.nodes.map((node) => node.year).filter(Number.isFinite);
+    const fallbackYear = knownYears.length ? Math.max(...knownYears) + 1 : 1;
+    const grouped = new Map();
+    nodes.forEach((node) => {
+      const key = Number.isFinite(node.year) ? node.year : fallbackYear;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(node);
+    });
+    const layers = [...grouped.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, layerNodes]) => ({
+        year: year === fallbackYear ? null : year,
+        nodes: layerNodes.sort((a, b) => a.title.localeCompare(b.title)),
+      }));
+    minimizeLayerCrossings(layers, edges);
+
+    const horizontalStep = cards ? 236 : 72;
+    const verticalStep = cards ? 82 : 28;
+    const left = cards ? 135 : 65;
+    const top = cards ? 98 : 70;
+    const maxRows = Math.max(1, ...layers.map((layer) => layer.nodes.length));
+    const positions = new Map();
+    const yearPositions = new Map();
+    layers.forEach((layer, layerIndex) => {
+      const x = left + layerIndex * horizontalStep;
+      yearPositions.set(layer.year ?? "unknown", x);
+      const offset = (maxRows - layer.nodes.length) / 2;
+      layer.nodes.forEach((node, row) => {
+        positions.set(node.paper_id, { x, y: top + (row + offset) * verticalStep, layer: layerIndex, row });
+      });
+    });
     return {
-      positions, lanes, minYear, maxYear, yearStep, left,
+      positions,
+      layers,
       yearPositions,
-      width: yearCursor + right,
-      height: currentY + 45,
+      width: Math.max(420, left * 2 + Math.max(0, layers.length - 1) * horizontalStep),
+      height: Math.max(300, top * 2 + Math.max(1, maxRows - 1) * verticalStep),
       cards,
+      method: "weighted_layered_barycentric",
     };
   }
 
   function renderGraph({ fit = false } = {}) {
     if (!state.payload) return;
     const graph = activeGraph();
-    const cards = state.mode !== "corpus" && graph.nodes.length <= 48;
-    state.layout = buildLayout(graph.nodes, cards);
+    const visibleYearCount = new Set(graph.nodes.map((node) => node.year).filter(Number.isFinite)).size;
+    const cards = state.mode === "lineage"
+      ? graph.nodes.length <= 24
+      : graph.nodes.length <= 16 && visibleYearCount <= 10;
+    state.layout = buildLayout(graph.nodes, graph.edges, cards);
     dom.lanes.replaceChildren();
     dom.edges.replaceChildren();
     dom.nodes.replaceChildren();
-    renderLanes(state.layout);
+    renderTimeGrid(state.layout);
     renderEdges(graph.edges, state.layout);
     renderNodes(graph.nodes, state.layout);
     updateViewSummary(graph);
@@ -426,19 +478,22 @@
     }
   }
 
-  function renderLanes(layout) {
-    layout.lanes.forEach((lane) => {
-      dom.lanes.appendChild(svgEl("rect", {
-        x: 20, y: lane.y, width: layout.width - 40, height: lane.height,
-        rx: 14, class: `lane-band${lane.index % 2 ? " alt" : ""}`,
-      }));
-      dom.lanes.appendChild(svgEl("text", {
-        x: 36, y: lane.y + 25, class: "lane-title",
-      }, lane.key === "unclustered" ? "UNCLUSTERED" : `MODEL · SOLUTION CLUSTER ${lane.key}`));
-    });
-    layout.yearPositions.forEach((x, year) => {
-      dom.lanes.appendChild(svgEl("line", { x1: x, y1: 37, x2: x, y2: layout.height - 22, class: "year-line" }));
-      dom.lanes.appendChild(svgEl("text", { x, y: 27, "text-anchor": "middle", class: "year-label" }, year));
+  function renderTimeGrid(layout) {
+    layout.layers.forEach((layer, index) => {
+      const x = layout.yearPositions.get(layer.year ?? "unknown");
+      if (index % 2) {
+        const previousX = index ? layout.yearPositions.get(layout.layers[index - 1].year ?? "unknown") : x;
+        const nextX = index + 1 < layout.layers.length ? layout.yearPositions.get(layout.layers[index + 1].year ?? "unknown") : x;
+        dom.lanes.appendChild(svgEl("rect", {
+          x: (previousX + x) / 2,
+          y: 45,
+          width: Math.max(0, (nextX - previousX) / 2),
+          height: layout.height - 70,
+          class: "time-band",
+        }));
+      }
+      dom.lanes.appendChild(svgEl("line", { x1: x, y1: 42, x2: x, y2: layout.height - 22, class: "year-line" }));
+      dom.lanes.appendChild(svgEl("text", { x, y: 28, "text-anchor": "middle", class: "year-label" }, layer.year ?? "N/A"));
     });
   }
 
@@ -447,7 +502,17 @@
     const target = layout.positions.get(edge.target);
     if (!source || !target) return null;
     const horizontalGap = Math.abs(target.x - source.x);
-    const offset = layout.cards ? Math.min(91, Math.max(16, horizontalGap / 3)) : 8;
+    const offset = layout.cards ? 91 : 7;
+    if (horizontalGap < 1) {
+      const side = source.y <= target.y ? 1 : -1;
+      const x = source.x + side * (layout.cards ? 118 : 25);
+      const attach = source.x + side * offset;
+      return {
+        d: `M ${attach} ${source.y} C ${x} ${source.y}, ${x} ${target.y}, ${attach} ${target.y}`,
+        mx: x,
+        my: (source.y + target.y) / 2,
+      };
+    }
     const sx = source.x + offset;
     const tx = target.x - offset;
     const span = Math.max(45, Math.abs(tx - sx) * 0.42);
@@ -491,23 +556,23 @@
   }
 
   function renderNodes(nodes, layout) {
-    const laneColor = new Map(layout.lanes.map((lane, index) => [lane.key, BRANCH_COLORS[index % BRANCH_COLORS.length]]));
     nodes.forEach((node) => {
       const position = layout.positions.get(node.paper_id);
       if (!position) return;
-      const landmark = state.landmarkIds.has(node.paper_id);
+      const primary = state.primaryNodeIds.has(node.paper_id);
       const hub = Boolean(node.metadata?.is_hub);
+      const branchIndex = Math.max(0, (state.payload.auto_branches || []).findIndex((branch) => branch.paper_ids.includes(node.paper_id)));
       const group = svgEl("g", {
-        class: `node-group${landmark ? " landmark" : ""}`,
+        class: `node-group${primary ? " primary-node" : ""}`,
         transform: `translate(${position.x} ${position.y})`,
         "data-paper-id": node.paper_id,
         tabindex: 0,
         role: "button",
         "aria-label": `${node.title}, ${node.year || "unknown year"}`,
       });
-      group.style.setProperty("--node-color", laneColor.get(laneKey(node)));
-      if (layout.cards) renderNodeCard(group, node, { landmark, hub });
-      else renderNodeDot(group, node, { landmark, hub });
+      group.style.setProperty("--node-color", primary ? BRANCH_COLORS[branchIndex % BRANCH_COLORS.length] : "#91a098");
+      if (layout.cards) renderNodeCard(group, node, { primary, hub });
+      else renderNodeDot(group, node, { primary, hub });
       group.addEventListener("click", (event) => { event.stopPropagation(); selectPaper(node.paper_id, false); });
       group.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") selectPaper(node.paper_id, false); });
       group.addEventListener("pointerenter", (event) => showPaperTooltip(event, node));
@@ -516,14 +581,14 @@
     });
   }
 
-  function renderNodeCard(group, node, { landmark, hub }) {
+  function renderNodeCard(group, node, { primary, hub }) {
     group.appendChild(svgEl("rect", { x: -91, y: -29, width: 182, height: 58, class: "node-card" }));
     group.appendChild(svgEl("rect", { x: -91, y: -29, width: 5, height: 58, rx: 3, class: "node-accent" }));
     group.appendChild(svgEl("text", { x: -77, y: -13, class: "node-year" }, node.year || "N/A"));
     if (hub) {
       group.append(svgEl("circle", { cx: 75, cy: -14, r: 8, class: "hub-ring" }), svgEl("text", { x: 75, y: -11, "text-anchor": "middle", class: "hub-star" }, "✦"));
-    } else if (landmark) {
-      group.appendChild(svgEl("text", { x: 78, y: -11, "text-anchor": "end", class: "node-meta" }, "LANDMARK"));
+    } else if (primary) {
+      group.appendChild(svgEl("text", { x: 78, y: -11, "text-anchor": "end", class: "node-meta" }, "PRIMARY DAG"));
     }
     const lines = wrapTitle(paperDisplayTitle(node), 27, 2);
     lines.forEach((line, index) => group.appendChild(svgEl("text", { x: -77, y: 3 + index * 13, class: "node-title" }, line)));
@@ -531,9 +596,9 @@
     group.appendChild(svgEl("text", { x: 78, y: 20, "text-anchor": "end", class: "node-meta" }, `${citations ?? 0} cites`));
   }
 
-  function renderNodeDot(group, node, { landmark, hub }) {
-    group.appendChild(svgEl("circle", { cx: 0, cy: 0, r: hub ? 8 : landmark ? 7 : 4.5, class: "node-dot" }));
-    if (hub || landmark || state.selected?.id === node.paper_id) {
+  function renderNodeDot(group, node, { primary, hub }) {
+    group.appendChild(svgEl("circle", { cx: 0, cy: 0, r: hub ? 8 : primary ? 7 : 4.5, class: "node-dot" }));
+    if (hub || primary || state.selected?.id === node.paper_id) {
       group.appendChild(svgEl("text", { x: 10, y: -7, class: "node-dot-label" }, `${shortTitle(paperDisplayTitle(node), 25)} · ${node.year || "?"}`));
     }
   }
@@ -559,13 +624,13 @@
 
   function updateViewSummary(graph) {
     const copy = {
-      lineage: ["Primary genealogy", "Dominant lineage + benchmark landmarks"],
+      lineage: ["Primary genealogy", "Transitively reduced evidence DAG"],
       evidence: ["Evidence map", "Logical evidence first; research-group links are optional"],
       corpus: ["Corpus overview", "All papers; relationship layers remain optional"],
     }[state.mode];
-    const branch = (state.payload.benchmark_branches || []).find((item) => item.branch_id === state.branchFocus);
+    const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
     $("#view-title").textContent = branch ? branch.label : copy[0];
-    $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} visible relations${branch ? " · benchmark focus" : ""}`;
+    $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} visible relations · weighted layered layout${branch ? " · auto path focus" : ""}`;
   }
 
   function selectPaper(paperId, center) {
@@ -628,29 +693,24 @@
   }
 
   function renderBranchInspector() {
-    const branch = state.payload.benchmark_branches.find((item) => item.branch_id === state.branchFocus);
+    const branch = state.payload.auto_branches.find((item) => item.branch_id === state.branchFocus);
     if (!branch) return renderEmptyInspector();
     const papers = branch.paper_ids.map((id) => state.nodeById.get(id)).filter(Boolean);
-    const axis = state.payload.dag.run_metadata?.axis || "solution";
-    const clusters = [...new Set(papers.map((paper) => (paper.cluster_paths?.[axis] || []).join(" / ") || "unclustered"))];
-    const topClusterIds = [...new Set(papers.map((paper) => paper.cluster_paths?.[axis]?.[0]).filter(Boolean))];
-    const splitNotes = (state.payload.dag.branches || [])
-      .filter((item) => topClusterIds.some((cluster) => item.branch_id === `${axis}:${cluster}`) && item.split_reason)
-      .map((item) => item.split_reason);
-    const evaluation = branch.evaluation || {};
+    const splitPaper = branch.split_paper_id ? state.nodeById.get(branch.split_paper_id) : null;
+    const representatives = branch.representative_paper_ids.map((id) => state.nodeById.get(id)).filter(Boolean);
     dom.inspector.innerHTML = `<div style="--accent:#557b98">
-      <div class="inspector-eyebrow">BENCHMARK BRANCH · HUMAN LENS</div>
+      <div class="inspector-eyebrow">AUTO-DISCOVERED · ${branch.kind === "branch_cone" ? "BRANCH CONE" : "LINEAGE PATH"}</div>
       <h2 class="inspector-title">${escapeHtml(branch.label)}</h2>
-      <p class="inspector-subtitle">${escapeHtml(branch.note || "Expert-curated branch hypothesis used to inspect the current model output.")}</p>
+      <p class="inspector-subtitle">${escapeHtml(branch.explanation)}</p>
       <div class="detail-chips">
-        <span class="detail-chip gold">Human benchmark</span>
-        <span class="detail-chip">${papers.length} landmarks</span>
-        <span class="detail-chip parent">${formatPct(evaluation.paper_coverage)} paper coverage</span>
-        <span class="detail-chip">${formatPct(evaluation.coarse_cluster_coherence)} cluster coherence</span>
+        <span class="detail-chip parent">Evidence DAG derived</span>
+        <span class="detail-chip">${papers.length} papers</span>
+        <span class="detail-chip">${branch.edge_keys.length} display edges</span>
+        <span class="detail-chip">${formatPct(branch.confidence)} minimum confidence</span>
       </div>
-      <div class="inspector-section"><h3>REPRESENTATIVE PAPERS</h3><div class="branch-paper-list">${papers.map((paper) => `<button class="branch-paper-button" data-paper-id="${escapeHtml(paper.paper_id)}"><span>${paper.year || "?"}</span><b>${escapeHtml(paperDisplayTitle(paper))}</b><small>solution / ${escapeHtml((paper.cluster_paths?.[axis] || []).join(" / ") || "unclustered")}</small></button>`).join("")}</div></div>
-      <div class="inspector-section"><h3>MODEL COMPARISON</h3><p class="explanation-copy">This expert branch currently spans ${clusters.length} model cluster${clusters.length === 1 ? "" : "s"}: ${escapeHtml(clusters.join(", "))}. The two views remain separate so disagreement stays visible.</p></div>
-      <div class="inspector-section"><h3>SPLIT EXPLANATION STATUS</h3><p class="abstract-copy">${splitNotes.length ? escapeHtml(splitNotes.join(" ")) : "No technical split explanation has been validated for this branch in the current run. This remains an explicit evidence gap."}</p></div>
+      ${splitPaper ? `<div class="inspector-section"><h3>DETECTED SPLIT POINT</h3><button class="branch-paper-button" data-paper-id="${escapeHtml(splitPaper.paper_id)}"><span>${splitPaper.year || "?"}</span><b>${escapeHtml(paperDisplayTitle(splitPaper))}</b><small>More than one non-redundant primary successor</small></button></div>` : ""}
+      <div class="inspector-section"><h3>REPRESENTATIVE PAPERS</h3><div class="branch-paper-list">${representatives.map((paper) => `<button class="branch-paper-button" data-paper-id="${escapeHtml(paper.paper_id)}"><span>${paper.year || "?"}</span><b>${escapeHtml(paperDisplayTitle(paper))}</b><small>Grounded primary-DAG representative</small></button>`).join("")}</div></div>
+      <div class="inspector-section"><h3>RELATION FAMILIES</h3><p class="explanation-copy">${branch.relation_types.length ? escapeHtml(branch.relation_types.map((item) => RELATION_LABELS[item] || item).join(" · ")) : "No typed primary relation is available."}</p></div>
     </div>`;
   }
 
@@ -664,21 +724,21 @@
       </div>
       <div class="reading-guide">
         <div class="guide-row"><span class="guide-number">1</span><div><b>先看深绿色主谱系</b><small>这些边同时是 strong、parent-eligible 和 dominant。</small></div></div>
-        <div class="guide-row"><span class="guide-number">2</span><div><b>切换到“证据图”</b><small>查看 baseline、Introduction 讨论和没有进入主干的强关联。</small></div></div>
-        <div class="guide-row"><span class="guide-number">3</span><div><b>点击边查看正文</b><small>每个 evidence atom 都保留 section、role、citation marker 与来源 PDF。</small></div></div>
+        <div class="guide-row"><span class="guide-number">2</span><div><b>查看自动发现路径</b><small>它们来自约简后的主谱系 DAG，并可在分叉或汇合处重叠。</small></div></div>
+        <div class="guide-row"><span class="guide-number">3</span><div><b>切换到“证据图”</b><small>展开被默认隐藏的直接强边、中关联及其原文证据。</small></div></div>
       </div>
       <div class="run-stats">
         <div class="run-stat"><b>${summary.paper_count ?? "—"}</b><small>Papers</small></div>
-        <div class="run-stat"><b>${summary.dominant_count ?? "—"}</b><small>Primary edges</small></div>
+        <div class="run-stat"><b>${summary.display_primary_count ?? "—"}</b><small>Display edges</small></div>
         <div class="run-stat"><b>${summary.evidence_atom_count ?? "—"}</b><small>Evidence atoms</small></div>
-        <div class="run-stat"><b>${formatPct(state.payload?.evaluation?.metrics?.expected_dominant_edge_recall)}</b><small>Gold edge recall</small></div>
+        <div class="run-stat"><b>${summary.auto_branch_count ?? "—"}</b><small>Auto paths</small></div>
       </div>
       <div class="inspector-section"><h3>CURRENT PRIMARY MAP</h3><div class="connection-list">${renderPrimaryOverview()}</div></div>
     </div>`;
   }
 
   function renderPrimaryOverview() {
-    return state.edges.filter((edge) => edge.dominant).map((edge) => {
+    return state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge))).map((edge) => {
       const source = state.nodeById.get(edge.source);
       const target = state.nodeById.get(edge.target);
       return `<button class="connection-button" data-edge-key="${escapeHtml(edgeKey(edge))}" style="--edge-color:#204b3e"><span class="connection-dot"></span><span class="connection-title">${escapeHtml(shortTitle(source ? paperDisplayTitle(source) : edge.source, 20))} → ${escapeHtml(shortTitle(target ? paperDisplayTitle(target) : edge.target, 20))}</span><span class="connection-level">${escapeHtml(RELATION_LABELS[edge.relation] || edge.relation)}</span></button>`;
@@ -687,12 +747,11 @@
 
   function renderPaperInspector(node) {
     if (!node) return renderEmptyInspector();
-    const path = node.cluster_paths?.[state.payload.dag.run_metadata?.axis || "solution"] || [];
     const fulltext = state.payload.fulltext?.[node.paper_id];
     const connections = state.edges
       .filter((edge) => edge.source === node.paper_id || edge.target === node.paper_id)
       .sort((a, b) => Number(b.dominant) - Number(a.dominant) || LEVEL_RANK[b.association_level] - LEVEL_RANK[a.association_level] || Number(a.relation === "SAME_RESEARCH_GROUP") - Number(b.relation === "SAME_RESEARCH_GROUP") || b.confidence - a.confidence);
-    const landmark = state.payload.landmarks.find((item) => item.paper_id === node.paper_id);
+    const autoPaths = (state.payload.auto_branches || []).filter((branch) => branch.paper_ids.includes(node.paper_id));
     const doi = node.metadata?.doi;
     const openAlexId = node.paper_id.startsWith("OPENALEX:") ? node.paper_id.split(":")[1] : null;
     const links = [
@@ -701,19 +760,19 @@
       fulltext?.local_path && `<a class="action-link" href="../${escapeHtml(fulltext.local_path)}" target="_blank">Local PDF</a>`,
       fulltext?.selected_url && `<a class="action-link" href="${escapeHtml(fulltext.selected_url)}" target="_blank" rel="noreferrer">Source PDF</a>`,
     ].filter(Boolean).join("");
-    dom.inspector.innerHTML = `<div style="--accent:${escapeHtml(BRANCH_COLORS[Math.max(0, ["3","1","0","2"].indexOf(laneKey(node))) % BRANCH_COLORS.length])}">
+    dom.inspector.innerHTML = `<div style="--accent:${escapeHtml(BRANCH_COLORS[Math.max(0, (state.payload.auto_branches || []).findIndex((branch) => branch.paper_ids.includes(node.paper_id))) % BRANCH_COLORS.length])}">
       <div class="inspector-eyebrow">PAPER · ${escapeHtml(node.paper_id)}</div>
       <h2 class="inspector-title">${escapeHtml(node.title)}</h2>
       <p class="inspector-subtitle">${escapeHtml([node.venue, node.year].filter(Boolean).join(" · ") || "Publication metadata unavailable")}</p>
       <div class="detail-chips">
-        ${landmark ? `<span class="detail-chip gold">Benchmark landmark</span>` : ""}
+        ${state.primaryNodeIds.has(node.paper_id) ? `<span class="detail-chip parent">Primary DAG</span>` : ""}
         ${node.metadata?.is_hub ? `<span class="detail-chip parent">Hub · ${Number(node.metadata.hub_score || 0).toFixed(2)}</span>` : ""}
         <span class="detail-chip">${connections.length} in-corpus relations</span>
         ${fulltext ? `<span class="detail-chip parent">Full text verified</span>` : ""}
       </div>
       <div class="inspector-section"><h3>METADATA</h3><dl class="metadata-list">
         <dt>Year</dt><dd>${node.year || "Unknown"}</dd>
-        <dt>Model cluster</dt><dd>${path.length ? `solution / ${path.join(" / ")}` : "Unclustered"}</dd>
+        <dt>Auto paths</dt><dd>${autoPaths.length ? escapeHtml(autoPaths.map((branch) => branch.label).join(" · ")) : "Not in the current primary path"}</dd>
         <dt>Citations</dt><dd>${node.metadata?.citation_count ?? "Unknown"}</dd>
         <dt>Open access</dt><dd>${node.metadata?.is_open_access ? "Yes" : "Not reported by OpenAlex"}</dd>
         ${fulltext ? `<dt>Full-text source</dt><dd>${escapeHtml(fulltext.selected_provider || "fallback")} · title score ${fulltext.title_score}</dd>` : ""}
@@ -777,8 +836,8 @@
   }
 
   function showPaperTooltip(event, node) {
-    const path = node.cluster_paths?.[state.payload.dag.run_metadata?.axis || "solution"] || [];
-    showTooltip(event, `<b>${escapeHtml(node.title)}</b><small>${node.year || "Unknown year"} · solution/${escapeHtml(path.join("/")) || "unclustered"}<br>${node.metadata?.citation_count ?? 0} citations</small>`);
+    const paths = (state.payload.auto_branches || []).filter((branch) => branch.paper_ids.includes(node.paper_id)).length;
+    showTooltip(event, `<b>${escapeHtml(node.title)}</b><small>${node.year || "Unknown year"} · ${paths} auto path${paths === 1 ? "" : "s"}<br>${node.metadata?.citation_count ?? 0} citations</small>`);
   }
 
   function showEdgeTooltip(event, edge) {

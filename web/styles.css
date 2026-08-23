@@ -289,9 +289,7 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .loading-glyph span:nth-child(3) { right: 3px; animation-delay: .36s; }
 @keyframes pulse { 0%,100% { transform: scale(.75); opacity: .5; } 50% { transform: scale(1); opacity: 1; } }
 
-.lane-band { fill: rgba(255,255,255,.32); stroke: #dce2de; stroke-width: 1; }
-.lane-band.alt { fill: rgba(225,232,227,.28); }
-.lane-title { fill: #84918a; font: 700 10px var(--sans); letter-spacing: .12em; }
+.time-band { fill: rgba(225,232,227,.2); }
 .year-line { stroke: #d5ddd8; stroke-width: 1; stroke-dasharray: 3 6; }
 .year-label { fill: #8e9a94; font: 600 10px var(--sans); }
 
@@ -318,7 +316,7 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .node-card { fill: #fffef9; stroke: #cbd6d0; stroke-width: 1; rx: 10; filter: url(#card-shadow); }
 .node-group:hover .node-card { stroke: #739986; stroke-width: 1.5; }
 .node-group.selected .node-card { stroke: var(--forest); stroke-width: 2.2; }
-.node-group.landmark .node-card { fill: #fffdf4; }
+.node-group.primary-node .node-card { fill: #fffdf4; }
 .node-accent { fill: var(--node-color, #668e7a); }
 .node-year { fill: #7d8983; font: 700 9px var(--sans); letter-spacing: .08em; }
 .node-title { fill: #1d2a24; font: 600 11px/1.2 var(--serif); }
@@ -326,7 +324,7 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .hub-ring { fill: #fff5d8; stroke: var(--gold); stroke-width: 1; }
 .hub-star { fill: #a77d25; font: 700 9px var(--sans); }
 .node-dot { fill: #fffef9; stroke: var(--node-color, #668e7a); stroke-width: 2; }
-.node-group.landmark .node-dot { fill: #f9e8ad; stroke: #9e792d; }
+.node-group.primary-node .node-dot { fill: #f9e8ad; stroke: #9e792d; }
 .node-group.selected .node-dot { stroke: var(--strong); stroke-width: 4; }
 .node-dot-label { fill: #34443c; font: 600 9px var(--serif); paint-order: stroke; stroke: var(--canvas); stroke-width: 4px; stroke-linejoin: round; }
 
@@ -379,6 +377,7 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .branch-paper-button span { grid-row: 1 / 3; align-self: center; color: #7e8a84; font: 650 13px var(--serif); }
 .branch-paper-button b { overflow: hidden; color: #344139; font: 600 11px var(--serif); text-overflow: ellipsis; white-space: nowrap; }
 .branch-paper-button small { color: #8d9892; font-size: 8px; }
+.section-empty { margin: 10px 0 0; color: #89958f; font-size: 9px; line-height: 1.5; }
 
 .edge-route { display: grid; grid-template-columns: 1fr 30px 1fr; align-items: center; gap: 6px; margin: 17px 0; }
 .route-paper { padding: 10px; background: #fff; border: 1px solid #dfe5e1; border-radius: 7px; cursor: pointer; text-align: left; }

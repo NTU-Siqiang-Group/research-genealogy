@@ -7,20 +7,24 @@ citations.
 Regenerate `data/inspector.json` whenever the DAG or evidence changes:
 
 ```bash
-.venv-coi/bin/python scripts/07_build_inspector_data.py
+.venv-coi/bin/python scripts/07_build_inspector_data.py \
+  --topic "LSM-tree structural and workload-adaptive optimization"
 ```
 
-The generated payload combines these authoritative artifacts:
+The generated payload combines the DAG and retrieval artifacts, then derives
+a display backbone and automatic path lenses from the primary evidence DAG:
 
 - `data/output/evidence_first/evolution_dag.json`
-- `data/output/evidence_first/evaluation.json`
 - `data/raw/fulltext/retrieval_index.json`
-- `configs/lsm_gold.yaml`
+
+The UI deliberately does not expose expert benchmarks or legacy solution
+clusters, and neither is included in its generated payload. Its default layout
+is chronological and cluster-free.
 
 Run the UI from the repository root:
 
 ```bash
-.venv-coi/bin/python -m http.server 4173 --bind 127.0.0.1
+.venv-coi/bin/python -m http.server 4174 --bind 127.0.0.1
 ```
 
-Open <http://127.0.0.1:4173/web/>.
+Open <http://127.0.0.1:4174/web/>.

@@ -199,36 +199,44 @@ traced to Dostoevsky even when the baseline name is not the paper title.
 
 ## Interactive genealogy inspector
 
-Build the browser payload from the current evidence-first DAG, evaluation,
-gold benchmark, and full-text retrieval provenance:
+Build the browser payload from the current evidence-first DAG and full-text
+retrieval provenance. Gold labels and development evaluation files are not
+inputs to this product view:
 
 ```bash
-.venv-coi/bin/python scripts/07_build_inspector_data.py
+.venv-coi/bin/python scripts/07_build_inspector_data.py \
+  --topic "LSM-tree structural and workload-adaptive optimization"
 ```
 
 Serve the repository root so the inspector can also open locally retrieved
 PDFs:
 
 ```bash
-.venv-coi/bin/python -m http.server 4173 --bind 127.0.0.1
+.venv-coi/bin/python -m http.server 4174 --bind 127.0.0.1
 ```
 
-Then open <http://127.0.0.1:4173/web/>. The inspector provides:
+Then open <http://127.0.0.1:4174/web/>. The inspector provides:
 
-- a default dominant-lineage DAG with benchmark landmarks and compressed
-  chronological spacing;
+- a default transitively reduced primary DAG that keeps redundant direct-edge
+  evidence inspectable without drawing every redundant arc;
+- automatically discovered lineage components and branch cones derived only
+  from strong, parent-eligible evidence edges;
 - separate evidence-map and all-corpus modes;
 - weak/medium/strong relation layers, with weak citations disabled by default;
 - standalone same-research-group links are a separate, disabled-by-default
   layer; logical medium relations remain visible and retain priority when both
   evidence types occur on the same paper pair;
-- title/OpenAlex search, benchmark-branch focus, pan, zoom, and fit controls;
-- paper metadata, model-cluster membership, local/official PDF links, and
+- title/OpenAlex search, automatic-path focus, pan, zoom, and fit controls;
+- paper metadata, automatic-path membership, local/official PDF links, and
   strongest incident relations;
 - edge-level inspection of relation types, parent eligibility, confidence,
   sections, roles, citation markers, entities, and verbatim evidence passages;
+- a cluster-free weighted layered layout: chronology defines horizontal
+  layers, while repeated weighted barycentric sweeps order nodes to reduce
+  crossings, giving primary edges much more influence than supplemental ones;
 - shareable `?paper=...`, `?edge=source,target`, and `?mode=evidence` URLs.
 
-The numeric `solution` lanes are explicitly shown as model clusters. The
-human-curated benchmark branches are a separate lens in the left panel; the UI
-does not present those two sources as if they were the same result.
+Legacy Run-B solution clusters remain in archived experiment artifacts but no
+longer control the graph layout or appear in the product UI. Automatic paths
+are navigation aids, not benchmarks or hard partitions; papers may belong to
+multiple branch cones after a later merge.

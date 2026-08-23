@@ -108,11 +108,11 @@
             </div>
           </section>
 
-          <section class="panel-section benchmark-section">
+          <section class="panel-section branch-section">
             <div class="section-heading-row">
               <div>
-                <div class="section-label">BENCHMARK LENS</div>
-                <div class="section-hint">人工假设，不等同于模型 cluster</div>
+                <div class="section-label">AUTO-DISCOVERED PATHS</div>
+                <div class="section-hint">从 primary evidence DAG 自动提取，可重叠</div>
               </div>
               <button class="text-button" id="clear-branch" hidden>Clear</button>
             </div>
@@ -120,11 +120,11 @@
           </section>
 
           <section class="panel-section quality-section">
-            <div class="section-label">RUN QUALITY</div>
+            <div class="section-label">DAG STRUCTURE</div>
             <div class="quality-grid">
-              <div><span id="edge-recall">—</span><small>Gold edges</small></div>
-              <div><span id="forbidden-count">—</span><small>Forbidden</small></div>
-              <div><span id="chronology-count">—</span><small>Time errors</small></div>
+              <div><span id="primary-count">—</span><small>Display edges</small></div>
+              <div><span id="auto-branch-count">—</span><small>Auto paths</small></div>
+              <div><span id="redundant-count">—</span><small>Hidden redundant</small></div>
             </div>
           </section>
         </aside>
@@ -133,7 +133,7 @@
           <div class="stage-toolbar">
             <div class="view-summary">
               <span id="view-title">Primary genealogy</span>
-              <small id="view-subtitle">Dominant lineage + benchmark landmarks</small>
+              <small id="view-subtitle">Transitively reduced evidence DAG</small>
             </div>
             <div class="toolbar-actions">
               <button class="tool-button" id="zoom-out" title="缩小" aria-label="缩小">−</button>

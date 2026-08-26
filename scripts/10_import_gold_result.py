@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -25,27 +27,38 @@ def copy_directory(source: Path, target: Path) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="refresh an existing imported bundle without deleting it",
+    )
+    args = parser.parse_args()
     workspace = Path(__file__).resolve().parents[1]
     store = ResultStore(workspace / "data" / "searches")
     try:
         existing = store.get(RESULT_ID)
-        print(f"Gold Case already imported: {existing['open_url']}")
-        return 0
+        if not args.refresh:
+            print(f"Gold Case already imported: {existing['open_url']}")
+            return 0
     except FileNotFoundError:
-        pass
+        existing = None
 
     config = yaml.safe_load((workspace / "configs" / "lsm_gold.yaml").read_text(encoding="utf-8"))
     seeds = [item["title"] for item in config.get("must_find", [])]
-    record = store.create(
-        {
-            "seeds": seeds,
-            "topic": config.get("topic"),
-            "corpus_cap": config.get("corpus_cap", 150),
-            "topic_search_limit": 40,
-            "fulltext_limit": 3,
-        },
-        result_id=RESULT_ID,
-    )
+    if existing:
+        record = existing
+    else:
+        record = store.create(
+            {
+                "seeds": seeds,
+                "topic": config.get("topic"),
+                "corpus_cap": config.get("corpus_cap", 150),
+                "topic_search_limit": 40,
+                "fulltext_limit": 5,
+            },
+            result_id=RESULT_ID,
+        )
     result_dir = store.result_dir(RESULT_ID)
     store.update_status(
         RESULT_ID,
@@ -123,13 +136,31 @@ def main() -> int:
             "data/raw/fulltext/retrieval_index.json": f"data/searches/{RESULT_ID}/raw/fulltext/retrieval_index.json",
         },
     )
+    fulltext_manifest = yaml.safe_load(
+        (workspace / "configs" / "lsm_fulltext.yaml").read_text(encoding="utf-8")
+    ) or {}
+    fulltext = inspector.setdefault("fulltext", {})
+    for document in fulltext_manifest.get("documents", []):
+        paper_id = str(document.get("paper_id") or "")
+        source = workspace / str(document.get("pdf_path") or "")
+        if not paper_id or not source.is_file() or paper_id in fulltext:
+            continue
+        fulltext[paper_id] = {
+            "local_path": local_prefix + source.name,
+            "selected_url": None,
+            "selected_provider": "configured_manifest",
+            "source_page": None,
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "title_score": None,
+            "retrieved_at": None,
+        }
     (result_dir / "inspector.json").write_text(
         json.dumps(inspector, ensure_ascii=False, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
 
     retrieval = json.loads((result_dir / "raw" / "fulltext" / "retrieval_index.json").read_text(encoding="utf-8"))
-    retrieved = sum(item.get("status") == "retrieved" for item in retrieval.get("papers", []))
+    retrieved = len(inspector.get("fulltext", {}))
     store.update_status(
         RESULT_ID,
         state="completed",

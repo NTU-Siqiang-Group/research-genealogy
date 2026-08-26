@@ -9,6 +9,56 @@ it no longer chooses paper parents.
 
 The two upstream repositories are pinned in `upstream.lock` and are not patched.
 
+## Search application and persistent results
+
+Start the local application server:
+
+```bash
+.venv-coi/bin/python scripts/09_serve_app.py --port 4174
+```
+
+Open <http://127.0.0.1:4174/>. The homepage accepts one paper title, DOI, or
+OpenAlex ID in the usual case; put one seed per line for a curated multi-seed
+case. Search work runs in the background and the homepage shows its current
+stage. An identical completed request is reused unless a forced rerun is
+requested through the CLI or API.
+
+Every search is an independent, reopenable bundle under
+`data/searches/<result-id>/`:
+
+```text
+request.json                 normalized query and stable fingerprint
+status.json                  progress, warnings, counts, and final state
+inputs/                      exact configuration and full-text selection
+raw/openalex/                cached provider responses
+raw/pdfs/                    title-validated source PDFs
+raw/fulltext/                retrieval attempts, URLs, and checksums
+corpus.json                  bounded paper corpus
+citation_graph.json          normalized weak citation candidates
+evidence.json                section-aware extracted evidence
+outputs/                     inferred DAG, dominant tree, DOT, and SVG
+inspector.json               self-contained browser payload
+logs/                        commands, stdout/stderr, and traceback on failure
+artifact_manifest.json       byte size and SHA-256 for every saved artifact
+```
+
+Opening a saved result reads `inspector.json`; it does not call OpenAlex, the
+full-text fallback chain, or an LLM again. The homepage history is derived from
+these directories, so it does not depend on a separate database. Search data
+and credentials remain local and are ignored by Git.
+
+The same workflow is available without the browser:
+
+```bash
+.venv-coi/bin/python scripts/08_run_search.py \
+  --seed "CAMAL: Optimizing LSM-trees via Active Learning"
+```
+
+The current manually audited LSM-tree result can be imported once into this
+store with `.venv-coi/bin/python scripts/10_import_gold_result.py`. This copies
+its raw provider cache, PDFs, evidence, derived artifacts, and retained legacy
+inputs so the historical run is auditable as well as viewable.
+
 ## Verified local smoke suite
 
 ```bash
@@ -208,14 +258,14 @@ inputs to this product view:
   --topic "LSM-tree structural and workload-adaptive optimization"
 ```
 
-Serve the repository root so the inspector can also open locally retrieved
-PDFs:
+Serve the application so the inspector can also open locally retrieved PDFs
+and select persistent results:
 
 ```bash
-.venv-coi/bin/python -m http.server 4174 --bind 127.0.0.1
+.venv-coi/bin/python scripts/09_serve_app.py --port 4174
 ```
 
-Then open <http://127.0.0.1:4174/web/>. The inspector provides:
+Then open <http://127.0.0.1:4174/>. The inspector provides:
 
 - a default 19-paper technical genealogy containing logical medium and strong
   relations, with the transitively reduced dominant DAG emphasized as its

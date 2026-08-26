@@ -15,4 +15,5 @@ data/papers/*.json
 data/semantic_profiles/
 data/hierarchy/
 data/output/
+data/searches/
 *.log

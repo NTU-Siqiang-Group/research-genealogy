@@ -19,6 +19,7 @@
   };
 
   const state = {
+    resultId: null,
     payload: null,
     nodes: [],
     edges: [],
@@ -103,7 +104,19 @@
     setupDom();
     bindControls();
     try {
-      const response = await fetch("./data/inspector.json", { cache: "no-store" });
+      const params = new URLSearchParams(window.location.search);
+      const requestedResult = params.get("result");
+      if (requestedResult && !/^[a-z0-9][a-z0-9-]{0,95}$/.test(requestedResult)) {
+        throw new Error("Invalid result ID");
+      }
+      state.resultId = requestedResult;
+      const primaryUrl = requestedResult
+        ? `/api/results/${encodeURIComponent(requestedResult)}/inspector`
+        : "./data/inspector.json";
+      let response = await fetch(primaryUrl, { cache: "no-store" });
+      if (!response.ok && requestedResult && response.status === 404) {
+        response = await fetch(`../data/searches/${encodeURIComponent(requestedResult)}/inspector.json`, { cache: "no-store" });
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       state.payload = await response.json();
       state.nodes = state.payload.dag.nodes || [];
@@ -170,6 +183,7 @@
 
   function syncLocation() {
     const params = new URLSearchParams();
+    if (state.resultId) params.set("result", state.resultId);
     if (state.mode !== "lineage") params.set("mode", state.mode);
     if (state.layoutMode !== "topology") params.set("layout", state.layoutMode);
     if (state.selected?.type === "paper") params.set("paper", state.selected.id);

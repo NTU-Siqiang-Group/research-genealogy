@@ -1,6 +1,6 @@
 # Research Genealogy Inspector
 
-This is a dependency-free static UI over the evidence-first output contract.
+This is a dependency-free browser UI over the evidence-first output contract.
 It intentionally starts from the primary genealogy instead of rendering all
 citations.
 
@@ -26,10 +26,12 @@ vertical lanes. Long relations use stable horizontal tracks selected to avoid
 paper cards in every intermediate layer. The initial viewport keeps labeled
 cards at a readable size; use `Fit` for a compressed whole-graph overview.
 
-Run the UI from the repository root:
+Run the homepage, result API, and inspector from the repository root:
 
 ```bash
-.venv-coi/bin/python -m http.server 4174 --bind 127.0.0.1
+.venv-coi/bin/python scripts/09_serve_app.py --port 4174
 ```
 
-Open <http://127.0.0.1:4174/web/>.
+Open <http://127.0.0.1:4174/>. Persistent result pages use
+`/web/?result=<result-id>`; `/web/` without a result continues to load the
+checked-in development payload.

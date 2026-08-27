@@ -5,7 +5,6 @@
   const LEVEL_RANK = { weak: 0, medium: 1, strong: 2 };
   const LEVEL_LABEL = { weak: "弱关联", medium: "中关联", strong: "强关联" };
   const LEVEL_COLOR = { weak: "#a9b2ad", medium: "#3f78a8", strong: "#c85134" };
-  const BRANCH_COLORS = ["#476f5d", "#8c6a3d", "#557b98", "#80688d", "#9a5c51", "#687869"];
   const RELATION_LABELS = {
     ADDRESSES_LIMITATION: "回应前作局限",
     EXPLICIT_BASELINE: "显式 baseline",
@@ -31,10 +30,8 @@
     narrativeEdgeKeys: new Set(),
     mode: "lineage",
     layoutMode: "topology",
-    levels: new Set(["strong", "medium"]),
     showGroupEdges: false,
     selected: null,
-    branchFocus: null,
     transform: { x: 0, y: 0, scale: 1 },
     layout: null,
     dragging: null,
@@ -70,10 +67,6 @@
     return node.title;
   }
 
-  function formatPct(value) {
-    return Number.isFinite(value) ? `${Math.round(value * 100)}%` : "—";
-  }
-
   function svgEl(tag, attrs = {}, text = null) {
     const element = document.createElementNS(SVG_NS, tag);
     Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, String(value)));
@@ -94,9 +87,7 @@
       loading: $("#loading-state"),
       search: $("#paper-search"),
       searchResults: $("#search-results"),
-      branchList: $("#branch-list"),
       zoomReadout: $("#zoom-readout"),
-      hairball: $("#hairball-warning"),
     });
   }
 
@@ -150,18 +141,9 @@
     const { summary } = state.payload;
     $("#topic-title").textContent = state.payload.topic;
     $("#run-pill").textContent = `${summary.paper_count} papers · ${summary.edge_count} relations`;
-    $("#strong-count").textContent = summary.association_level_counts.strong;
-    $("#medium-count").textContent = state.edges.filter((edge) =>
-      edge.association_level === "medium" && state.technicalEdgeKeys.has(edgeKey(edge))
-    ).length;
-    $("#weak-count").textContent = summary.association_level_counts.weak;
-    $("#group-count").textContent = state.edges.filter((edge) =>
-      isResearchGroupEdge(edge) && !state.technicalEdgeKeys.has(edgeKey(edge))
-    ).length;
     $("#lineage-paper-count").textContent = summary.narrative_lineage_paper_count ?? summary.technical_lineage_paper_count ?? "—";
     $("#lineage-edge-count").textContent = summary.narrative_lineage_edge_count ?? summary.technical_lineage_edge_count ?? "—";
     $("#primary-count").textContent = summary.display_primary_count ?? "—";
-    renderBranchList();
   }
 
   function applyInitialLocation() {
@@ -171,13 +153,18 @@
       state.mode = mode;
       $$(".mode-button").forEach((item) => item.classList.toggle("active", item.dataset.mode === mode));
     }
+    state.showGroupEdges = params.get("group") === "1";
+    $("#group-layer").checked = state.showGroupEdges;
     if (params.get("layout") === "timeline") state.layoutMode = "timeline";
+    const initialGraph = activeGraph();
+    const visibleNodeIds = new Set(initialGraph.nodes.map((node) => node.paper_id));
+    const visibleEdgeKeys = new Set(initialGraph.edges.map(edgeKey));
     const paperId = params.get("paper");
-    if (paperId && state.nodeById.has(paperId)) state.selected = { type: "paper", id: paperId };
+    if (paperId && visibleNodeIds.has(paperId)) state.selected = { type: "paper", id: paperId };
     const edgePair = params.get("edge")?.split(",");
     if (edgePair?.length === 2) {
       const key = `${edgePair[0]}→${edgePair[1]}`;
-      if (state.edgeByKey.has(key)) state.selected = { type: "edge", id: key };
+      if (visibleEdgeKeys.has(key)) state.selected = { type: "edge", id: key };
     }
   }
 
@@ -185,6 +172,7 @@
     const params = new URLSearchParams();
     if (state.resultId) params.set("result", state.resultId);
     if (state.mode !== "lineage") params.set("mode", state.mode);
+    if (state.showGroupEdges) params.set("group", "1");
     if (state.layoutMode !== "topology") params.set("layout", state.layoutMode);
     if (state.selected?.type === "paper") params.set("paper", state.selected.id);
     if (state.selected?.type === "edge") {
@@ -199,10 +187,9 @@
     $$(".mode-button").forEach((button) => {
       button.addEventListener("click", () => {
         state.mode = button.dataset.mode;
-        state.branchFocus = null;
+        state.selected = null;
         state.fitOnNextRender = true;
         $$(".mode-button").forEach((item) => item.classList.toggle("active", item === button));
-        $("#clear-branch").hidden = true;
         syncLocation();
         renderInspector();
         renderGraph({ fit: true });
@@ -219,35 +206,12 @@
       });
     });
 
-    $$(".relation-toggle input").forEach((input) => {
-      if (!input.dataset.level) return;
-      input.addEventListener("change", () => {
-        input.checked ? state.levels.add(input.dataset.level) : state.levels.delete(input.dataset.level);
-        dom.hairball.hidden = !state.levels.has("weak");
-        renderGraph({ fit: false });
-      });
-    });
-
     $("#group-layer").addEventListener("change", (event) => {
       state.showGroupEdges = event.currentTarget.checked;
+      if (state.selected?.type === "edge") state.selected = null;
+      syncLocation();
+      renderInspector();
       renderGraph({ fit: false });
-    });
-
-    $("#reset-filters").addEventListener("click", () => {
-      state.levels = new Set(["strong", "medium"]);
-      $$(".relation-toggle input").forEach((input) => {
-        input.checked = input.dataset.level ? state.levels.has(input.dataset.level) : false;
-      });
-      state.showGroupEdges = false;
-      dom.hairball.hidden = true;
-      renderGraph({ fit: false });
-    });
-
-    $("#clear-branch").addEventListener("click", () => {
-      state.branchFocus = null;
-      $("#clear-branch").hidden = true;
-      renderBranchList();
-      renderGraph({ fit: true });
     });
 
     dom.search.addEventListener("input", renderSearchResults);
@@ -273,9 +237,6 @@
     $("#fit-view").addEventListener("click", fitView);
     $("#help-button").addEventListener("click", () => {
       state.selected = null;
-      state.branchFocus = null;
-      $("#clear-branch").hidden = true;
-      renderBranchList();
       syncLocation();
       renderGraph({ fit: true });
       renderSelectionStyles();
@@ -293,31 +254,6 @@
       const paperButton = event.target.closest("[data-paper-id]");
       if (edgeButton) selectEdge(edgeButton.dataset.edgeKey);
       if (paperButton) selectPaper(paperButton.dataset.paperId, false);
-    });
-  }
-
-  function renderBranchList() {
-    dom.branchList.innerHTML = "";
-    const branches = state.payload?.auto_branches || [];
-    if (!branches.length) {
-      dom.branchList.innerHTML = `<p class="section-empty">Primary evidence DAG 暂未形成可识别路径。</p>`;
-      return;
-    }
-    branches.forEach((branch, index) => {
-      const button = document.createElement("button");
-      button.className = `branch-card${state.branchFocus === branch.branch_id ? " active" : ""}`;
-      button.style.setProperty("--branch-color", BRANCH_COLORS[index % BRANCH_COLORS.length]);
-      const kind = branch.kind === "branch_cone" ? "branch cone" : "lineage path";
-      button.innerHTML = `<b>${escapeHtml(branch.label)}</b><small>${branch.paper_ids.length} papers · ${kind} · ${formatPct(branch.confidence)}</small>`;
-      button.addEventListener("click", () => {
-        state.branchFocus = state.branchFocus === branch.branch_id ? null : branch.branch_id;
-        $("#clear-branch").hidden = !state.branchFocus;
-        state.selected = null;
-        renderBranchList();
-        renderInspector();
-        renderGraph({ fit: true });
-      });
-      dom.branchList.appendChild(button);
     });
   }
 
@@ -348,77 +284,45 @@
         dom.searchResults.hidden = true;
         dom.search.value = "";
         state.mode = "corpus";
-        state.branchFocus = null;
-        $("#clear-branch").hidden = true;
-        renderBranchList();
+        state.selected = null;
         $$(".mode-button").forEach((item) => item.classList.toggle("active", item.dataset.mode === "corpus"));
+        renderGraph({ fit: true });
         selectPaper(button.dataset.searchPaper, true);
       });
     });
   }
 
   function activeGraph() {
-    let edges;
-    if (state.mode === "lineage") {
-      const selectedPaper = state.selected?.type === "paper" ? state.selected.id : null;
-      edges = state.edges.filter((edge) =>
-        state.narrativeEdgeKeys.has(edgeKey(edge))
-        && state.levels.has(edge.association_level)
-      );
-      if (selectedPaper && state.levels.has("medium")) {
-        const localMedium = state.edges.filter((edge) =>
-          edge.association_level === "medium"
-          && state.technicalEdgeKeys.has(edgeKey(edge))
-          && (edge.source === selectedPaper || edge.target === selectedPaper)
-        );
-        edges = [...new Map([...edges, ...localMedium].map((edge) => [edgeKey(edge), edge])).values()];
-      }
-      if (state.showGroupEdges && state.levels.has("medium")) {
-        const technicalNodes = new Set();
-        edges.forEach((edge) => {
-          technicalNodes.add(edge.source);
-          technicalNodes.add(edge.target);
-        });
-        const supplemental = state.edges.filter((edge) =>
-          isResearchGroupEdge(edge)
-          && !state.technicalEdgeKeys.has(edgeKey(edge))
-          && technicalNodes.has(edge.source)
-          && technicalNodes.has(edge.target)
-        );
-        edges = [...edges, ...supplemental];
-      }
+    const baseEdges = state.mode === "lineage"
+      ? state.edges.filter((edge) => state.narrativeEdgeKeys.has(edgeKey(edge)))
+      : state.mode === "evidence"
+        ? state.edges.filter((edge) => state.technicalEdgeKeys.has(edgeKey(edge)))
+        : [...state.edges];
+    const baseEdgeKeys = new Set(baseEdges.map(edgeKey));
+    const baseNodeIds = new Set();
+    if (state.mode === "corpus") {
+      state.nodes.forEach((node) => baseNodeIds.add(node.paper_id));
     } else {
-      edges = state.edges.filter((edge) => state.levels.has(edge.association_level));
-      if (!state.showGroupEdges) {
-        edges = edges.filter((edge) => !isResearchGroupEdge(edge) || state.technicalEdgeKeys.has(edgeKey(edge)));
-      }
-      if (state.mode === "evidence" && state.levels.has("weak")) {
-        const selectedPaper = state.selected?.type === "paper" ? state.selected.id : null;
-        edges = edges.filter((edge) => edge.association_level !== "weak" || (selectedPaper && (edge.source === selectedPaper || edge.target === selectedPaper)));
-      }
+      baseEdges.forEach((edge) => {
+        baseNodeIds.add(edge.source);
+        baseNodeIds.add(edge.target);
+      });
     }
-
-    const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
-    if (branch) {
-      const members = new Set(branch.paper_ids);
-      const pathEdges = new Set(branch.edge_keys || []);
-      edges = edges.filter((edge) =>
-        members.has(edge.source)
-        && members.has(edge.target)
-        && (state.mode !== "lineage" || pathEdges.has(edgeKey(edge)))
-      );
-    }
-
-    const ids = new Set();
-    if (state.mode === "corpus" && !branch) state.nodes.forEach((node) => ids.add(node.paper_id));
-    if (branch) branch.paper_ids.forEach((id) => ids.add(id));
-    edges.forEach((edge) => { ids.add(edge.source); ids.add(edge.target); });
-    if (state.selected?.type === "paper") ids.add(state.selected.id);
-    if (state.selected?.type === "edge") {
-      const selectedEdge = state.edgeByKey.get(state.selected.id);
-      if (selectedEdge) { ids.add(selectedEdge.source); ids.add(selectedEdge.target); }
-    }
-    return { edges, nodes: state.nodes.filter((node) => ids.has(node.paper_id)) };
+    const groupEdges = state.edges.filter((edge) =>
+      isResearchGroupEdge(edge)
+      && baseNodeIds.has(edge.source)
+      && baseNodeIds.has(edge.target)
+    );
+    const supplemental = state.showGroupEdges
+      ? groupEdges.filter((edge) => !baseEdgeKeys.has(edgeKey(edge)))
+      : [];
+    return {
+      edges: [...baseEdges, ...supplemental],
+      layoutEdges: baseEdges,
+      baseEdgeKeys,
+      groupEdgeCount: groupEdges.length,
+      nodes: state.nodes.filter((node) => baseNodeIds.has(node.paper_id)),
+    };
   }
 
   function isResearchGroupEdge(edge) {
@@ -427,14 +331,37 @@
       || (edge.relation_types || []).includes("KEY_AUTHOR_OVERLAP");
   }
 
+  function displayEdge(edge) {
+    if (state.showGroupEdges || !isResearchGroupEdge(edge)) return edge;
+    const relationTypes = (edge.relation_types || []).filter((relation) =>
+      !["KEY_AUTHOR_OVERLAP", "SAME_RESEARCH_GROUP"].includes(relation)
+    );
+    const logicalRelation = edge.relation === "SAME_RESEARCH_GROUP"
+      ? relationTypes.find((relation) => relation !== "CITES") || "CITES"
+      : edge.relation;
+    return {
+      ...edge,
+      relation: logicalRelation,
+      relation_types: relationTypes.length ? relationTypes : [logicalRelation],
+      association_level: logicalRelation === "CITES" ? "weak" : edge.association_level,
+      evidence_details: (edge.evidence_details || []).filter((atom) => atom.role !== "KEY_AUTHOR_OVERLAP"),
+      explanation: logicalRelation === "CITES"
+        ? "In-corpus citation. Enable the research-group overlay to inspect key-author overlap evidence."
+        : edge.explanation,
+    };
+  }
+
   function edgeSemanticClass(edge) {
-    if (edge.relation === "SAME_RESEARCH_GROUP") return "semantic-group";
-    if (edge.relation === "EXPLICIT_BASELINE") return "semantic-explicit";
-    if (edge.relation === "IMPLICIT_BASELINE") return "semantic-implicit";
-    if (["METHOD_DEPENDENCY", "USES_CONCEPT_FROM", "EXTENDS"].includes(edge.relation)) {
+    const logicalRelation = edge.relation === "SAME_RESEARCH_GROUP"
+      ? (edge.relation_types || []).find((relation) => !["CITES", "KEY_AUTHOR_OVERLAP", "SAME_RESEARCH_GROUP"].includes(relation)) || "CITES"
+      : edge.relation;
+    if (logicalRelation === "EXPLICIT_BASELINE") return "semantic-explicit";
+    if (logicalRelation === "IMPLICIT_BASELINE") return "semantic-implicit";
+    if (["METHOD_DEPENDENCY", "USES_CONCEPT_FROM", "EXTENDS"].includes(logicalRelation)) {
       return "semantic-inheritance";
     }
-    if (edge.relation === "ADDRESSES_LIMITATION") return "semantic-limitation";
+    if (logicalRelation === "ADDRESSES_LIMITATION") return "semantic-limitation";
+    if (logicalRelation === "CITES") return "semantic-citation";
     if (edge.association_level === "medium") return "semantic-discussion";
     return "semantic-citation";
   }
@@ -807,6 +734,7 @@
   function renderGraph({ fit = false } = {}) {
     if (!state.payload) return;
     const graph = activeGraph();
+    $("#group-count").textContent = graph.groupEdgeCount;
     const visibleYearCount = new Set(graph.nodes.map((node) => node.year).filter(Number.isFinite)).size;
     const style = graph.nodes.length <= 8
       ? "card"
@@ -817,14 +745,14 @@
           : "dot";
     const layoutMode = effectiveLayoutMode();
     state.layout = layoutMode === "topology"
-      ? buildTopologyLayout(graph.nodes, graph.edges, style)
-      : buildTimelineLayout(graph.nodes, graph.edges, style);
+      ? buildTopologyLayout(graph.nodes, graph.layoutEdges, style)
+      : buildTimelineLayout(graph.nodes, graph.layoutEdges, style);
     updateLayoutControls(layoutMode);
     dom.lanes.replaceChildren();
     dom.edges.replaceChildren();
     dom.nodes.replaceChildren();
     renderLayerGrid(state.layout);
-    renderEdges(graph.edges, state.layout);
+    renderEdges(graph.edges, state.layout, graph.baseEdgeKeys);
     renderNodes(graph.nodes, state.layout);
     updateViewSummary(graph);
     if (!state.selected) renderInspector();
@@ -834,6 +762,9 @@
     app.dataset.layout = layoutMode;
     app.dataset.visibleNodes = String(graph.nodes.length);
     app.dataset.visibleEdges = String(graph.edges.length);
+    app.dataset.baseEdges = String(graph.layoutEdges.length);
+    app.dataset.groupRelations = String(graph.groupEdgeCount);
+    app.dataset.groupEnabled = String(state.showGroupEdges);
     app.dataset.layoutMethod = state.layout.method;
     app.dataset.layoutColumns = String(state.layout.layers.length);
     renderSelectionStyles();
@@ -920,17 +851,18 @@
     };
   }
 
-  function renderEdges(edges, layout) {
-    const supplemental = (edge) => Number(edge.relation === "SAME_RESEARCH_GROUP");
-    const ordered = [...edges].sort((a, b) => supplemental(b) - supplemental(a) || LEVEL_RANK[a.association_level] - LEVEL_RANK[b.association_level] || Number(a.dominant) - Number(b.dominant));
+  function renderEdges(edges, layout, baseEdgeKeys) {
+    const isSupplemental = (edge) => !baseEdgeKeys.has(edgeKey(edge));
+    const ordered = [...edges].sort((a, b) => Number(isSupplemental(b)) - Number(isSupplemental(a)) || LEVEL_RANK[a.association_level] - LEVEL_RANK[b.association_level] || Number(a.dominant) - Number(b.dominant));
     ordered.forEach((edge) => {
       const curve = edgePath(edge, layout);
       if (!curve) return;
       const key = edgeKey(edge);
+      const supplemental = isSupplemental(edge);
       const group = svgEl("g", { class: "edge-group", "data-edge-key": key });
       const line = svgEl("path", {
         d: curve.d,
-        class: `graph-edge ${edge.association_level} ${edgeSemanticClass(edge)}${edge.relation === "SAME_RESEARCH_GROUP" ? " supplemental" : ""}${edge.dominant ? " dominant" : ""}`,
+        class: `graph-edge ${edge.association_level} ${supplemental ? "semantic-group supplemental" : edgeSemanticClass(edge)}${edge.dominant ? " dominant" : ""}`,
         "data-edge-key": key,
       });
       const hit = svgEl("path", { d: curve.d, class: "edge-hit", "data-edge-key": key });
@@ -939,7 +871,16 @@
         element.addEventListener("pointerenter", (event) => showEdgeTooltip(event, edge));
         element.addEventListener("pointerleave", hideTooltip);
       });
-      group.append(line, hit);
+      group.append(line);
+      if (state.showGroupEdges && !supplemental && isResearchGroupEdge(edge)) {
+        group.appendChild(svgEl("path", {
+          d: curve.d,
+          class: "graph-edge group-affiliation-overlay",
+          "data-edge-key": key,
+          "aria-hidden": "true",
+        }));
+      }
+      group.append(hit);
       dom.edges.appendChild(group);
     });
   }
@@ -950,7 +891,6 @@
       if (!position) return;
       const primary = state.primaryNodeIds.has(node.paper_id);
       const hub = Boolean(node.metadata?.is_hub);
-      const branchIndex = Math.max(0, (state.payload.auto_branches || []).findIndex((branch) => branch.paper_ids.includes(node.paper_id)));
       const group = svgEl("g", {
         class: `node-group${primary ? " primary-node" : ""}`,
         transform: `translate(${position.x} ${position.y})`,
@@ -959,7 +899,7 @@
         role: "button",
         "aria-label": `${node.title}, ${node.year || "unknown year"}`,
       });
-      group.style.setProperty("--node-color", primary ? BRANCH_COLORS[branchIndex % BRANCH_COLORS.length] : "#91a098");
+      group.style.setProperty("--node-color", primary ? "#476f5d" : "#91a098");
       if (layout.style === "card") renderNodeCard(group, node, { primary, hub });
       else if (layout.style === "compact") renderNodeCompact(group, node, { primary, hub });
       else renderNodeDot(group, node, { primary, hub });
@@ -1026,16 +966,15 @@
 
   function updateViewSummary(graph) {
     const copy = {
-      lineage: ["Narrative genealogy", "Sparse strong-relation skeleton; select a paper for medium context"],
+      lineage: ["Narrative genealogy", "Sparse strong-relation skeleton"],
       evidence: ["Evidence map", "Complete medium and strong evidence network"],
-      corpus: ["Corpus overview", "All papers; relationship layers remain optional"],
+      corpus: ["Full citation graph", "All papers and in-corpus citation relations"],
     }[state.mode];
-    const branch = (state.payload.auto_branches || []).find((item) => item.branch_id === state.branchFocus);
     const layoutCopy = effectiveLayoutMode() === "topology"
       ? "balanced DAG · topology + temporal prior"
       : "publication timeline · expanded vertical lanes";
-    $("#view-title").textContent = branch ? branch.label : copy[0];
-    $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} relations · ${layoutCopy}${branch ? " · auto path focus" : ""}`;
+    $("#view-title").textContent = copy[0];
+    $("#view-subtitle").textContent = `${graph.nodes.length} papers · ${graph.edges.length} relations · ${layoutCopy}`;
   }
 
   function toggleSelection(type, id) {
@@ -1048,11 +987,7 @@
     if (!state.nodeById.has(paperId)) return;
     const selected = toggleSelection("paper", paperId);
     syncLocation();
-    if (
-      (state.mode === "evidence" && state.levels.has("weak"))
-      || (state.mode === "lineage" && state.levels.has("medium"))
-    ) renderGraph({ fit: false });
-    else renderSelectionStyles();
+    renderSelectionStyles();
     renderInspector();
     if (selected && center) requestAnimationFrame(() => centerOnPaper(paperId));
     if (selected && window.innerWidth <= 920) $(".inspector-panel").classList.add("open");
@@ -1094,10 +1029,6 @@
 
   function renderInspector() {
     if (!state.payload) return;
-    if (!state.selected && state.branchFocus) {
-      renderBranchInspector();
-      return;
-    }
     if (!state.selected) {
       renderEmptyInspector();
       return;
@@ -1106,39 +1037,17 @@
     else renderEdgeInspector(state.edgeByKey.get(state.selected.id));
   }
 
-  function renderBranchInspector() {
-    const branch = state.payload.auto_branches.find((item) => item.branch_id === state.branchFocus);
-    if (!branch) return renderEmptyInspector();
-    const papers = branch.paper_ids.map((id) => state.nodeById.get(id)).filter(Boolean);
-    const splitPaper = branch.split_paper_id ? state.nodeById.get(branch.split_paper_id) : null;
-    const representatives = branch.representative_paper_ids.map((id) => state.nodeById.get(id)).filter(Boolean);
-    dom.inspector.innerHTML = `<div style="--accent:#557b98">
-      <div class="inspector-eyebrow">AUTO-DISCOVERED · ${branch.kind === "branch_cone" ? "BRANCH CONE" : "LINEAGE PATH"}</div>
-      <h2 class="inspector-title">${escapeHtml(branch.label)}</h2>
-      <p class="inspector-subtitle">${escapeHtml(branch.explanation)}</p>
-      <div class="detail-chips">
-        <span class="detail-chip parent">Evidence DAG derived</span>
-        <span class="detail-chip">${papers.length} papers</span>
-        <span class="detail-chip">${branch.edge_keys.length} display edges</span>
-        <span class="detail-chip">${formatPct(branch.confidence)} minimum confidence</span>
-      </div>
-      ${splitPaper ? `<div class="inspector-section"><h3>DETECTED SPLIT POINT</h3><button class="branch-paper-button" data-paper-id="${escapeHtml(splitPaper.paper_id)}"><span>${splitPaper.year || "?"}</span><b>${escapeHtml(paperDisplayTitle(splitPaper))}</b><small>More than one non-redundant primary successor</small></button></div>` : ""}
-      <div class="inspector-section"><h3>REPRESENTATIVE PAPERS</h3><div class="branch-paper-list">${representatives.map((paper) => `<button class="branch-paper-button" data-paper-id="${escapeHtml(paper.paper_id)}"><span>${paper.year || "?"}</span><b>${escapeHtml(paperDisplayTitle(paper))}</b><small>Grounded primary-DAG representative</small></button>`).join("")}</div></div>
-      <div class="inspector-section"><h3>RELATION FAMILIES</h3><p class="explanation-copy">${branch.relation_types.length ? escapeHtml(branch.relation_types.map((item) => RELATION_LABELS[item] || item).join(" · ")) : "No typed primary relation is available."}</p></div>
-    </div>`;
-  }
-
   function renderEmptyInspector() {
     const summary = state.payload?.summary || {};
     const graph = activeGraph();
     const copy = {
       lineage: {
-        title: "先看稀疏谱系，再按需展开",
-        description: "主谱系保留全部强关联，并只为没有强父边的论文补充一条最有信息量的中关联；选中论文可展开其余逻辑中关联。",
+        title: "从稀疏主线理解研究演进",
+        description: "主谱系保留全部强关联，并只为没有强父边的论文补充一条最有信息量的中关联。",
         guides: [
           ["先看稀疏叙事骨架", "红色和深绿色是强关联；少量蓝色虚线用于补足没有强父边的论文。"],
           ["沿深绿色主干追踪", "深绿色边同时是 strong、parent-eligible 和 dominant。"],
-          ["点击论文展开上下文", "只加入与该论文相邻的逻辑中关联；再次点击即可收回。"],
+          ["点击论文查看证据", "点击只会打开详情，不会改变当前论文集合；再次点击即可取消选中。"],
         ],
       },
       evidence: {
@@ -1147,16 +1056,16 @@
         guides: [
           ["查看全部逻辑关系", "强关联和 Introduction / Preliminary 中关联在这里完整保留。"],
           ["选择关系检查原文", "右侧会列出 section、角色、置信度和全文证据片段。"],
-          ["弱引用仍然局部展开", "开启弱关联后，只有选中论文相邻的引用会显示，避免全图失控。"],
+          ["需要引用全貌时切换视图", "普通引用集中在全引图中，不会混入当前逻辑证据网络。"],
         ],
       },
       corpus: {
-        title: "从完整语料定位论文",
-        description: "全语料视图用于搜索和检查 150 篇候选论文；它不是主谱系叙事本身。",
+        title: "检查完整引用网络",
+        description: "全引图展示语料中的全部论文和引用关系，用于定位候选论文与查验引用上下文。",
         guides: [
-          ["按发表年份浏览", "全语料默认使用时间布局，便于定位论文所处阶段。"],
+          ["按发表年份浏览", "全引图默认使用时间布局，便于定位论文所处阶段。"],
           ["选择论文查看关系", "右侧列出其最强连接、元数据与可用全文。"],
-          ["返回谱系继续追踪", "主谱系负责简洁叙事，证据图负责完整逻辑关系。"],
+          ["按目的切换视图", "主谱系负责简洁叙事，证据图负责完整逻辑关系，全引图负责普通引用。"],
         ],
       },
     }[state.mode];
@@ -1190,10 +1099,10 @@
   function renderPaperInspector(node) {
     if (!node) return renderEmptyInspector();
     const fulltext = state.payload.fulltext?.[node.paper_id];
-    const connections = state.edges
+    const connections = activeGraph().edges
       .filter((edge) => edge.source === node.paper_id || edge.target === node.paper_id)
+      .map(displayEdge)
       .sort((a, b) => Number(b.dominant) - Number(a.dominant) || LEVEL_RANK[b.association_level] - LEVEL_RANK[a.association_level] || Number(a.relation === "SAME_RESEARCH_GROUP") - Number(b.relation === "SAME_RESEARCH_GROUP") || b.confidence - a.confidence);
-    const autoPaths = (state.payload.auto_branches || []).filter((branch) => branch.paper_ids.includes(node.paper_id));
     const doi = node.metadata?.doi;
     const openAlexId = node.paper_id.startsWith("OPENALEX:") ? node.paper_id.split(":")[1] : null;
     const links = [
@@ -1202,19 +1111,18 @@
       fulltext?.local_path && `<a class="action-link" href="../${escapeHtml(fulltext.local_path)}" target="_blank">Local PDF</a>`,
       fulltext?.selected_url && `<a class="action-link" href="${escapeHtml(fulltext.selected_url)}" target="_blank" rel="noreferrer">Source PDF</a>`,
     ].filter(Boolean).join("");
-    dom.inspector.innerHTML = `<div style="--accent:${escapeHtml(BRANCH_COLORS[Math.max(0, (state.payload.auto_branches || []).findIndex((branch) => branch.paper_ids.includes(node.paper_id))) % BRANCH_COLORS.length])}">
+    dom.inspector.innerHTML = `<div style="--accent:${state.primaryNodeIds.has(node.paper_id) ? "#476f5d" : "#557b98"}">
       <div class="inspector-eyebrow">PAPER · ${escapeHtml(node.paper_id)}</div>
       <h2 class="inspector-title">${escapeHtml(node.title)}</h2>
       <p class="inspector-subtitle">${escapeHtml([node.venue, node.year].filter(Boolean).join(" · ") || "Publication metadata unavailable")}</p>
       <div class="detail-chips">
         ${state.primaryNodeIds.has(node.paper_id) ? `<span class="detail-chip parent">Primary spine</span>` : ""}
         ${node.metadata?.is_hub ? `<span class="detail-chip parent">Hub · ${Number(node.metadata.hub_score || 0).toFixed(2)}</span>` : ""}
-        <span class="detail-chip">${connections.length} in-corpus relations</span>
+        <span class="detail-chip">${connections.length} visible relations</span>
         ${fulltext ? `<span class="detail-chip parent">Full text verified</span>` : ""}
       </div>
       <div class="inspector-section"><h3>METADATA</h3><dl class="metadata-list">
         <dt>Year</dt><dd>${node.year || "Unknown"}</dd>
-        <dt>Auto paths</dt><dd>${autoPaths.length ? escapeHtml(autoPaths.map((branch) => branch.label).join(" · ")) : "Not in the current primary path"}</dd>
         <dt>Citations</dt><dd>${node.metadata?.citation_count ?? "Unknown"}</dd>
         <dt>Open access</dt><dd>${node.metadata?.is_open_access ? "Yes" : "Not reported by OpenAlex"}</dd>
         ${fulltext ? `<dt>Full-text source</dt><dd>${escapeHtml(fulltext.selected_provider || "fallback")} · title score ${fulltext.title_score}</dd>` : ""}
@@ -1239,6 +1147,7 @@
 
   function renderEdgeInspector(edge) {
     if (!edge) return renderEmptyInspector();
+    edge = displayEdge(edge);
     const source = state.nodeById.get(edge.source);
     const target = state.nodeById.get(edge.target);
     const relationChips = (edge.relation_types || []).map((relation) => `<span class="detail-chip">${escapeHtml(RELATION_LABELS[relation] || relation.replaceAll("_", " "))}</span>`).join("");
@@ -1278,11 +1187,11 @@
   }
 
   function showPaperTooltip(event, node) {
-    const paths = (state.payload.auto_branches || []).filter((branch) => branch.paper_ids.includes(node.paper_id)).length;
-    showTooltip(event, `<b>${escapeHtml(node.title)}</b><small>${node.year || "Unknown year"} · ${paths} auto path${paths === 1 ? "" : "s"}<br>${node.metadata?.citation_count ?? 0} citations</small>`);
+    showTooltip(event, `<b>${escapeHtml(node.title)}</b><small>${node.year || "Unknown year"}<br>${node.metadata?.citation_count ?? 0} citations</small>`);
   }
 
   function showEdgeTooltip(event, edge) {
+    edge = displayEdge(edge);
     const source = state.nodeById.get(edge.source);
     const target = state.nodeById.get(edge.target);
     showTooltip(event, `<b>${escapeHtml(shortTitle(source ? paperDisplayTitle(source) : edge.source))} → ${escapeHtml(shortTitle(target ? paperDisplayTitle(target) : edge.target))}</b><small>${LEVEL_LABEL[edge.association_level]} · ${escapeHtml(RELATION_LABELS[edge.relation] || edge.relation)}<br>${edge.evidence_details?.length || 0} evidence atoms${edge.dominant ? " · primary genealogy" : ""}</small>`);

@@ -56,7 +56,7 @@
               </button>
               <button class="mode-button" data-mode="corpus" role="tab">
                 <span class="mode-icon corpus-icon"></span>
-                <span><b>全语料</b><small>All papers</small></span>
+                <span><b>全引图</b><small>Full citation graph</small></span>
               </button>
             </div>
           </section>
@@ -71,25 +71,8 @@
             <div class="search-results" id="search-results" hidden></div>
           </section>
 
-          <section class="panel-section relation-section">
-            <div class="section-heading-row">
-              <div class="section-label">RELATION LAYERS</div>
-              <button class="text-button" id="reset-filters">Reset</button>
-            </div>
-            <label class="relation-toggle strong-toggle">
-              <input type="checkbox" data-level="strong" checked />
-              <span class="toggle-check"></span>
-              <span class="relation-swatch"></span>
-              <span class="relation-copy"><b>强关联</b><small>Baseline / method inheritance</small></span>
-              <span class="relation-count" id="strong-count">—</span>
-            </label>
-            <label class="relation-toggle medium-toggle">
-              <input type="checkbox" data-level="medium" checked />
-              <span class="toggle-check"></span>
-              <span class="relation-swatch"></span>
-              <span class="relation-copy"><b>中关联</b><small>Introduction / preliminary</small></span>
-              <span class="relation-count" id="medium-count">—</span>
-            </label>
+          <section class="panel-section group-overlay-section">
+            <div class="section-label">OPTIONAL OVERLAY</div>
             <label class="relation-toggle group-toggle">
               <input type="checkbox" id="group-layer" />
               <span class="toggle-check"></span>
@@ -97,16 +80,7 @@
               <span class="relation-copy"><b>同研究组补充</b><small>一作 / 二作 / 通讯作者重叠</small></span>
               <span class="relation-count" id="group-count">—</span>
             </label>
-            <label class="relation-toggle weak-toggle">
-              <input type="checkbox" data-level="weak" />
-              <span class="toggle-check"></span>
-              <span class="relation-swatch"></span>
-              <span class="relation-copy"><b>弱关联</b><small>Citation / Related Work</small></span>
-              <span class="relation-count" id="weak-count">—</span>
-            </label>
-            <div class="hairball-warning" id="hairball-warning" hidden>
-              <span>!</span> 弱关系很多；开启后建议选中论文局部查看。
-            </div>
+            <p class="overlay-note">只叠加当前视图内的研究组关系，不增加论文。</p>
           </section>
 
           <section class="panel-section edge-legend-section">
@@ -121,17 +95,6 @@
               <div class="edge-legend-item"><span class="edge-legend-swatch group"></span><span><b>研究组补充</b><small>关键作者重叠</small></span></div>
               <div class="edge-legend-item"><span class="edge-legend-swatch citation"></span><span><b>普通引用</b><small>Related Work / bibliography</small></span></div>
             </div>
-          </section>
-
-          <section class="panel-section branch-section">
-            <div class="section-heading-row">
-              <div>
-                <div class="section-label">AUTO-DISCOVERED PATHS</div>
-                <div class="section-hint">从 primary evidence DAG 自动提取，可重叠</div>
-              </div>
-              <button class="text-button" id="clear-branch" hidden>Clear</button>
-            </div>
-            <div id="branch-list" class="branch-list"></div>
           </section>
 
           <section class="panel-section quality-section">

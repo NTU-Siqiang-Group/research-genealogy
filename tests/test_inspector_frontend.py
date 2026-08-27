@@ -108,6 +108,9 @@ class InspectorFrontendTest(unittest.TestCase):
             'data-layout="topology"',
             'data-layout="timeline"',
             "EDGE SEMANTICS",
+            "OPTIONAL OVERLAY",
+            "只叠加当前视图内的研究组关系，不增加论文",
+            "全引图",
             "显式 baseline",
             "隐式 baseline",
         ):
@@ -121,6 +124,10 @@ class InspectorFrontendTest(unittest.TestCase):
             "parent_eligible",
             "showGroupEdges",
             "narrativeEdgeKeys",
+            "baseNodeIds",
+            "layoutEdges: baseEdges",
+            "groupEdgeCount",
+            "group-affiliation-overlay",
             "edgeSemanticClass",
             "showEdgeTooltip",
             "minimizeLayerCrossings",
@@ -128,12 +135,72 @@ class InspectorFrontendTest(unittest.TestCase):
             "buildTimelineLayout",
             "assignRouteLanes",
             "balanced_temporal_topological_dag_with_obstacle_routes",
-            "auto_branches",
         ):
             self.assertIn(behavior, script)
+        for hidden_control in (
+            "RELATION LAYERS",
+            'data-level="strong"',
+            'data-level="medium"',
+            'data-level="weak"',
+            "AUTO-DISCOVERED PATHS",
+            'id="branch-list"',
+        ):
+            self.assertNotIn(hidden_control, html)
+        for removed_behavior in ("state.levels", "branchFocus", "renderBranchList"):
+            self.assertNotIn(removed_behavior, script)
         self.assertNotIn("`GEN ${index + 1}`", script)
         self.assertNotIn("edge-label-bg", script)
         self.assertIn('markerUnits="userSpaceOnUse"', html)
+
+    def test_group_overlay_never_expands_a_mode_paper_set(self) -> None:
+        payload = json.loads((ROOT / "web/data/inspector.json").read_text(encoding="utf-8"))
+        nodes = payload["dag"]["nodes"]
+        edges = payload["dag"]["edges"]
+        technical = set(payload["auto_branch_discovery"]["technical_edge_keys"])
+        narrative = set(payload["auto_branch_discovery"]["narrative_edge_keys"])
+
+        def key(edge):
+            return f"{edge['source']}→{edge['target']}"
+
+        def is_group(edge):
+            relation_types = set(edge.get("relation_types", []))
+            return edge.get("relation") == "SAME_RESEARCH_GROUP" or bool(
+                {"SAME_RESEARCH_GROUP", "KEY_AUTHOR_OVERLAP"} & relation_types
+            )
+
+        expected = {
+            "lineage": (10, 11, 5),
+            "evidence": (20, 27, 13),
+            "corpus": (150, 1318, 125),
+        }
+        for mode, (paper_count, base_edge_count, group_count) in expected.items():
+            if mode == "lineage":
+                base_edges = [edge for edge in edges if key(edge) in narrative]
+            elif mode == "evidence":
+                base_edges = [edge for edge in edges if key(edge) in technical]
+            else:
+                base_edges = list(edges)
+            base_ids = {node["paper_id"] for node in nodes} if mode == "corpus" else {
+                endpoint
+                for edge in base_edges
+                for endpoint in (edge["source"], edge["target"])
+            }
+            group_edges = [
+                edge
+                for edge in edges
+                if is_group(edge)
+                and edge["source"] in base_ids
+                and edge["target"] in base_ids
+            ]
+            self.assertEqual(len(base_ids), paper_count)
+            self.assertEqual(len(base_edges), base_edge_count)
+            self.assertEqual(len(group_edges), group_count)
+            # Enabling the overlay only adds edges whose two endpoints are
+            # already members of the mode's immutable base node set.
+            enabled_ids = set(base_ids)
+            for edge in group_edges:
+                enabled_ids.update((edge["source"], edge["target"]))
+            self.assertEqual(enabled_ids, base_ids)
 
 
 if __name__ == "__main__":

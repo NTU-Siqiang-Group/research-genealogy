@@ -267,19 +267,15 @@ and select persistent results:
 
 Then open <http://127.0.0.1:4174/>. The inspector provides:
 
-- a default 19-paper technical genealogy containing logical medium and strong
-  relations, with the transitively reduced dominant DAG emphasized as its
-  primary spine;
-- automatically discovered lineage components and branch cones derived only
-  from strong, parent-eligible evidence edges;
-- separate evidence-map and all-corpus modes;
-- weak/medium/strong relation layers, with weak citations disabled by default;
-- standalone same-research-group links are a separate, disabled-by-default
-  layer; logical medium relations remain visible and retain priority when both
-  evidence types occur on the same paper pair;
-- title/OpenAlex search, automatic-path focus, pan, zoom, and fit controls;
-- paper metadata, automatic-path membership, local/official PDF links, and
-  strongest incident relations;
+- three fixed-content modes: a sparse narrative genealogy, the complete
+  medium/strong evidence network, and the full in-corpus citation graph;
+- one optional same-research-group overlay. It only draws key-author-overlap
+  relations whose two endpoints already belong to the selected mode, so it
+  never adds papers or changes their layout;
+- no weak/medium/strong filter burden and no product-facing automatic-path
+  controls; edge types remain distinguishable through the passive legend;
+- title/OpenAlex search, pan, zoom, and fit controls;
+- paper metadata, local/official PDF links, and strongest incident relations;
 - edge-level inspection of relation types, parent eligibility, confidence,
   sections, roles, citation markers, entities, and verbatim evidence passages;
 - two cluster-free layouts: the default topology view uses DAG generations,
@@ -293,9 +289,9 @@ Then open <http://127.0.0.1:4174/>. The inspector provides:
 - readable initial navigation for larger graphs: compact labeled cards stay at
   a useful scale and the viewport starts around the primary spine; `Fit` is an
   explicit overview action rather than the default;
-- shareable `?paper=...`, `?edge=source,target`, and `?mode=evidence` URLs.
+- shareable `?paper=...`, `?edge=source,target`, `?mode=evidence`, and
+  `?group=1` URLs.
 
-Legacy Run-B solution clusters remain in archived experiment artifacts but no
-longer control the graph layout or appear in the product UI. Automatic paths
-are navigation aids, not benchmarks or hard partitions; papers may belong to
-multiple branch cones after a later merge.
+Legacy Run-B solution clusters and automatically derived branch artifacts
+remain available for offline analysis, but neither controls the graph layout
+or appears as a product-facing navigation choice.

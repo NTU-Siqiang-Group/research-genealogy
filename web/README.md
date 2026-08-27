@@ -12,14 +12,16 @@ Regenerate `data/inspector.json` whenever the DAG or evidence changes:
 ```
 
 The generated payload combines the DAG and retrieval artifacts, then derives
-the full technical genealogy, a display backbone, and automatic path lenses
-from the evidence DAG:
+the full technical genealogy and display backbone from the evidence DAG:
 
 - `data/output/evidence_first/evolution_dag.json`
 - `data/raw/fulltext/retrieval_index.json`
 
-The UI deliberately does not expose expert benchmarks or legacy solution
-clusters, and neither is included in its generated payload. Its default layout
+The UI deliberately does not expose expert benchmarks, legacy solution
+clusters, or automatic-path controls. Content is selected only through three
+fixed modes: main genealogy, evidence map, and full citation graph. The one
+optional research-group overlay only connects papers already present in the
+current mode; it cannot expand or reposition the node set. The default layout
 is a cluster-free DAG-generation view with explicit long-edge routing. A
 second layout places publication years on the x-axis while retaining expanded
 vertical lanes. Long relations use stable horizontal tracks selected to avoid

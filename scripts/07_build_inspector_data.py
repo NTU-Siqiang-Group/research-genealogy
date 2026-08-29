@@ -69,6 +69,9 @@ def build_inspector_payload(
             "source_page": item.get("source_page"),
             "sha256": item.get("sha256"),
             "title_score": item.get("title_score"),
+            "selected_author": item.get("selected_author"),
+            "selected_author_role": item.get("selected_author_role"),
+            "discovery_method": item.get("discovery_method"),
             "retrieved_at": retrieval.get("retrieved_at"),
         }
 

@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 
 from src.corpus_builder import CoIRetrievalAdapter, CorpusBuilder
+from src.schema import PaperRecord
 
 
 class FakeCoISearcher:
@@ -48,7 +49,38 @@ class RateLimitedSearcher:
         return {"data": []}
 
 
+class AcronymSeedAdapter:
+    async def resolve_paper(self, query):
+        return PaperRecord("OPENALEX:W1", "Dostoevsky", 2018)
+
+    async def get_neighborhood(self, paper):
+        return paper, [], []
+
+    async def topic_search(self, topic, limit):
+        return []
+
+    async def hydrate_records(self, papers):
+        # Model a provider hydration pass returning a fresh record. The user
+        # supplied full title must still survive in corpus metadata.
+        return [PaperRecord(item.paper_id, item.title, item.year) for item in papers]
+
+
 class CoIRetrievalAdapterTest(unittest.TestCase):
+    def test_full_seed_title_survives_provider_hydration_as_alias(self) -> None:
+        full_title = (
+            "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based "
+            "Key-Value Stores via Adaptive Removal of Superfluous Merging"
+        )
+        result = asyncio.run(
+            CorpusBuilder(AcronymSeedAdapter()).build(
+                topic=full_title,
+                seeds=[full_title],
+                corpus_cap=10,
+                topic_search_limit=1,
+            )
+        )
+        self.assertEqual(result.papers[0].metadata["title_aliases"], [full_title])
+
     def test_cache_prevents_repeated_upstream_calls(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             searcher = FakeCoISearcher()

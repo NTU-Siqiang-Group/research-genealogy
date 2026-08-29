@@ -14,13 +14,15 @@ from datetime import datetime, timezone
 from difflib import SequenceMatcher
 import hashlib
 from html import unescape
+import ipaddress
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 from typing import Any, Callable, Iterable, Mapping
-from urllib.parse import quote, urlencode, urljoin
+from urllib.parse import quote, unquote, urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
@@ -29,9 +31,12 @@ from .schema import PaperRecord
 
 USER_AGENT = "academic-genealogy-fulltext/0.2"
 MAX_PDF_BYTES = 100 * 1024 * 1024
+MAX_AUTO_AUTHOR_PAGE_CANDIDATES = 8
+MAX_AUTO_AUTHOR_CANDIDATES = 12
 PROVIDER_PRIORITY = {
     "openalex_pdf": 100,
     "openalex_location": 95,
+    "author_homepage_auto": 92,
     "author_homepage": 90,
     "configured_override": 88,
     "doi_landing": 85,
@@ -56,6 +61,9 @@ class FullTextCandidate:
     provider: str
     source_page: str | None = None
     priority: int = 0
+    author_name: str | None = None
+    author_role: str | None = None
+    discovery_method: str | None = None
 
 
 @dataclass(slots=True)
@@ -67,6 +75,9 @@ class RetrievalAttempt:
     detail: str = ""
     resolved_url: str | None = None
     title_score: float | None = None
+    author_name: str | None = None
+    author_role: str | None = None
+    discovery_method: str | None = None
 
 
 @dataclass(slots=True)
@@ -80,7 +91,11 @@ class FullTextRetrievalResult:
     source_page: str | None = None
     sha256: str | None = None
     title_score: float | None = None
+    selected_author: str | None = None
+    selected_author_role: str | None = None
+    discovery_method: str | None = None
     attempts: list[RetrievalAttempt] = field(default_factory=list)
+    author_discovery: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -107,6 +122,303 @@ def _title_score(expected: str, extracted: str) -> float:
     prefix = extracted_normalized[: max(500, len(expected_normalized) * 4)]
     sequence = SequenceMatcher(None, expected_normalized, prefix).ratio()
     return max(coverage, sequence)
+
+
+def _preferred_title(paper: PaperRecord) -> str:
+    """Prefer a full user-supplied title over an acronym-only provider title."""
+
+    aliases = paper.metadata.get("title_aliases") or []
+    candidates = [paper.title, *(str(item) for item in aliases if item)]
+    return max(candidates, key=lambda value: len(_normalize(value)))
+
+
+def _selected_author_targets(paper: PaperRecord) -> list[dict[str, Any]]:
+    """Return first/corresponding authors, with last author as a marked proxy.
+
+    OpenAlex often leaves ``is_corresponding`` empty for older systems papers.
+    In that case the last author is included as a conservative proxy so the
+    fallback does not silently exclude the likely supervising/corresponding
+    author.  The proxy role is retained in retrieval provenance.
+    """
+
+    raw = [
+        dict(item)
+        for item in paper.metadata.get("authorships") or []
+        if isinstance(item, Mapping) and item.get("display_name")
+    ]
+    if not raw:
+        names = [str(item) for item in paper.metadata.get("authors") or [] if item]
+        raw = [
+            {
+                "display_name": name,
+                "byline_index": index,
+                "author_position": "first" if index == 0 else "last" if index == len(names) - 1 else "middle",
+                "is_corresponding": False,
+                "institutions": [],
+            }
+            for index, name in enumerate(names)
+        ]
+    if not raw:
+        return []
+
+    ordered = sorted(raw, key=lambda item: int(item.get("byline_index") or 0))
+    first = next(
+        (item for item in ordered if item.get("author_position") == "first"),
+        ordered[0],
+    )
+    selected: list[tuple[dict[str, Any], str]] = [(first, "first_author")]
+    correspondings = [item for item in ordered if item.get("is_corresponding")]
+    if correspondings:
+        selected.extend((item, "corresponding_author") for item in correspondings)
+    elif len(ordered) > 1:
+        selected.append((ordered[-1], "last_author_proxy"))
+
+    targets: list[dict[str, Any]] = []
+    by_key: dict[str, int] = {}
+    for item, role in selected:
+        key = str(item.get("author_id") or item.get("display_name")).casefold()
+        if key in by_key:
+            existing = targets[by_key[key]]
+            if existing["role"] != role:
+                existing["role"] = "first_and_corresponding_author"
+            continue
+        by_key[key] = len(targets)
+        targets.append(
+            {
+                "author_id": item.get("author_id"),
+                "display_name": str(item["display_name"]),
+                "role": role,
+                "orcid": item.get("orcid"),
+                "homepage_url": item.get("homepage_url"),
+                "institutions": [
+                    str(institution.get("display_name"))
+                    for institution in item.get("institutions") or []
+                    if isinstance(institution, Mapping)
+                    and institution.get("display_name")
+                ],
+            }
+        )
+    return targets
+
+
+def _safe_public_url(value: Any) -> str | None:
+    """Reject malformed and obvious local-network URLs from model output."""
+
+    if not value:
+        return None
+    url = str(value).strip()
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    if parsed.username or parsed.password:
+        return None
+    hostname = parsed.hostname.casefold().rstrip(".")
+    if hostname == "localhost" or hostname.endswith((".localhost", ".local")):
+        return None
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        if not address.is_global:
+            return None
+    return url
+
+
+def _parse_json_object(text: str) -> dict[str, Any]:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.IGNORECASE)
+    try:
+        value = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start, end = cleaned.find("{"), cleaned.rfind("}")
+        if start < 0 or end <= start:
+            return {}
+        try:
+            value = json.loads(cleaned[start : end + 1])
+        except json.JSONDecodeError:
+            return {}
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+AuthorWebSearch = Callable[[PaperRecord, list[dict[str, Any]]], list[dict[str, Any]]]
+
+
+class DeepSeekAuthorWebSearch:
+    """Generate author-controlled homepage/PDF candidates with web search.
+
+    Search output is only candidate generation.  ``FullTextResolver`` still
+    downloads and title-validates every returned PDF before accepting it.
+    """
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str = "https://api.deepseek.com",
+        model: str = "deepseek-v4-flash",
+        timeout_seconds: float = 45.0,
+    ) -> None:
+        from openai import OpenAI
+
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout_seconds,
+            max_retries=0,
+        )
+        self.model = model
+        self._cache: dict[str, list[dict[str, Any]]] = {}
+
+    def __call__(
+        self, paper: PaperRecord, authors: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        cache_key = paper.paper_id + "|" + "|".join(
+            str(item.get("author_id") or item["display_name"]) for item in authors
+        )
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        author_lines = "\n".join(
+            f"- {item['display_name']} ({item['role']}), affiliations: "
+            + (", ".join(item.get("institutions") or []) or "unknown")
+            for item in authors
+        )
+        instructions = (
+            "Use web search separately for every listed author. Search the exact "
+            "paper title together with that author's full name and PDF. Find the "
+            "author's official personal, university, or research-group homepage, "
+            "then look for an official publication entry and a direct PDF URL. "
+            "Prefer author-controlled static files (including GitHub Pages) over "
+            "publisher landing pages, because publisher pages may be inaccessible. "
+            "Do not stop after finding only a publication page when a direct PDF "
+            "can be located through another exact-title search. Return only "
+            "verified-looking candidate URLs. Exclude ResearchGate, Academia.edu, "
+            "social networks, piracy sites, and unrelated people. A URL is only a "
+            "candidate; the caller will independently fetch and validate the PDF "
+            "title."
+        )
+        input_text = (
+            f"Paper title: {_preferred_title(paper)}\n"
+            f"Year: {paper.year or 'unknown'}\n"
+            f"DOI: {paper.metadata.get('doi') or 'unknown'}\n"
+            f"Selected authors:\n{author_lines}"
+        )
+        output_format = {
+            "type": "json_schema",
+            "name": "author_homepage_candidates",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "authors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "author_name": {"type": "string"},
+                                "homepage_urls": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "publication_page_urls": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "pdf_urls": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                            },
+                            "required": [
+                                "author_name",
+                                "homepage_urls",
+                                "publication_page_urls",
+                                "pdf_urls",
+                            ],
+                        },
+                    }
+                },
+                "required": ["authors"],
+            },
+        }
+        stream = self.client.responses.create(
+            model=self.model,
+            instructions=instructions,
+            input=input_text,
+            reasoning={"effort": "none"},
+            tools=[{"type": "web_search"}],
+            tool_choice={"type": "web_search"},
+            max_output_tokens=1200,
+            stream=True,
+        )
+        searched_response: Any | None = None
+        for event in stream:
+            if getattr(event, "type", None) == "response.completed":
+                searched_response = getattr(event, "response", None)
+        if searched_response is None:
+            raise RuntimeError("author web search did not complete")
+        search_items = [
+            item.model_dump(exclude_none=True)
+            for item in searched_response.output
+            if getattr(item, "type", None) == "web_search_call"
+        ]
+        if not search_items:
+            raise RuntimeError("author web search returned no search actions")
+
+        # DeepSeek's Responses API is stateless. The first response contains
+        # only server-side web_search_call items; passing those items back lets
+        # the second response restore the search results and synthesize URLs.
+        synthesis = self.client.responses.create(
+            model=self.model,
+            instructions=instructions,
+            input=[
+                {"role": "user", "content": input_text},
+                *search_items,
+                {
+                    "role": "user",
+                    "content": (
+                        "Using only the restored search results, emit the requested "
+                        "author_homepage_candidates JSON."
+                    ),
+                },
+            ],
+            reasoning={"effort": "none"},
+            text={"format": output_format},
+            max_output_tokens=1200,
+        )
+        parsed = _parse_json_object(synthesis.output_text or "")
+        results = [
+            dict(item)
+            for item in parsed.get("authors") or []
+            if isinstance(item, Mapping)
+        ]
+        self._cache[cache_key] = results
+        return results
+
+
+def author_web_search_from_environment(
+    *, timeout_seconds: float = 45.0
+) -> AuthorWebSearch | None:
+    api_key = os.getenv("AUTHOR_SEARCH_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+    base_url = os.getenv("AUTHOR_SEARCH_BASE_URL") or os.getenv("LLM_BASE_URL")
+    provider = os.getenv("LLM_PROVIDER", "").casefold()
+    if not api_key or (provider and provider != "deepseek"):
+        return None
+    base_url = base_url or "https://api.deepseek.com"
+    if "deepseek.com" not in base_url:
+        return None
+    model = os.getenv("AUTHOR_SEARCH_MODEL") or os.getenv("LLM_MODEL")
+    if not model or not model.startswith("deepseek-v4-flash"):
+        model = "deepseek-v4-flash"
+    return DeepSeekAuthorWebSearch(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _safe_name(paper: PaperRecord) -> str:
@@ -146,6 +458,8 @@ class FullTextResolver:
         use_arxiv: bool = True,
         use_dblp: bool = True,
         use_doi: bool = True,
+        auto_author_homepages: bool = False,
+        author_web_search: AuthorWebSearch | None = None,
         http_get: HttpGet | None = None,
     ) -> None:
         self.author_pages = list(author_pages)
@@ -153,8 +467,11 @@ class FullTextResolver:
         self.use_arxiv = use_arxiv
         self.use_dblp = use_dblp
         self.use_doi = use_doi
+        self.auto_author_homepages = auto_author_homepages
+        self.author_web_search = author_web_search
         self.http_get = http_get or _default_http_get
         self._http_cache: dict[str, HttpPayload] = {}
+        self._discovered_author_pages: dict[str, list[str]] = {}
 
     def _get(self, url: str) -> HttpPayload:
         if url not in self._http_cache:
@@ -163,23 +480,79 @@ class FullTextResolver:
 
     @staticmethod
     def _candidate(
-        url: str, provider: str, source_page: str | None = None
+        url: str,
+        provider: str,
+        source_page: str | None = None,
+        *,
+        author_name: str | None = None,
+        author_role: str | None = None,
+        discovery_method: str | None = None,
     ) -> FullTextCandidate:
         return FullTextCandidate(
             url=url,
             provider=provider,
             source_page=source_page,
             priority=PROVIDER_PRIORITY[provider],
+            author_name=author_name,
+            author_role=author_role,
+            discovery_method=discovery_method,
         )
 
     @staticmethod
     def _likely_fulltext_url(url: str) -> bool:
-        lowered = url.casefold()
-        return (
-            lowered.endswith(".pdf")
-            or "/pdf/" in lowered
-            or "arxiv.org/pdf" in lowered
+        parsed = urlsplit(url)
+        decoded_path = unquote(parsed.path)
+        path = decoded_path.casefold()
+        filename = decoded_path.rsplit("/", 1)[-1]
+        stem = filename[:-4] if filename.casefold().endswith(".pdf") else filename
+        compact_stem = re.sub(r"[^a-z0-9]+", "", stem.casefold())
+        obvious_profile_document = (
+            compact_stem in {"cv", "resume", "curriculumvitae", "vita"}
+            or re.search(
+                r"(?:^|[-_.\d])(?:cv|resume|curriculum[-_.]?vitae|vita)$",
+                stem,
+                flags=re.IGNORECASE,
+            )
+            is not None
+            or stem.endswith("CV")
         )
+        if obvious_profile_document:
+            return False
+        return (
+            path.endswith(".pdf")
+            or "/pdf/" in path
+            or (parsed.hostname or "").casefold().endswith("arxiv.org")
+            and path.startswith("/pdf")
+        )
+
+    @staticmethod
+    def _page_title_matches(text: str, expected_title: str) -> bool:
+        """Require page-level identity before scanning every attachment.
+
+        A paper title appearing somewhere in an author/DBLP publication index
+        does not make every PDF on that page relevant.  Only title metadata or
+        a page-level heading can authorize a whole-page attachment scan.
+        """
+
+        cleaned = unescape(text.replace("\\/", "/"))
+        candidates: list[str] = []
+        for tag in re.findall(r"<meta\b[^>]*>", cleaned, flags=re.IGNORECASE):
+            attributes = {
+                name.casefold(): value
+                for name, value in re.findall(
+                    r"([:\w-]+)\s*=\s*[\"']([^\"']*)[\"']", tag
+                )
+            }
+            kind = (attributes.get("name") or attributes.get("property") or "").casefold()
+            if kind in {"citation_title", "dc.title", "og:title", "twitter:title"}:
+                candidates.append(attributes.get("content") or "")
+        for match in re.findall(
+            r"<(?:title|h1)\b[^>]*>(.*?)</(?:title|h1)>",
+            cleaned,
+            flags=re.IGNORECASE | re.DOTALL,
+        ):
+            candidates.append(re.sub(r"<[^>]+>", " ", match))
+        return any(_title_score(expected_title, candidate) >= 0.78 for candidate in candidates)
 
     @staticmethod
     def _urls_near_title(text: str, page_url: str, title: str) -> list[str]:
@@ -208,6 +581,32 @@ class FullTextResolver:
                     urls.append(url)
         return list(dict.fromkeys(urls))
 
+    @staticmethod
+    def _fulltext_urls_on_page(text: str, page_url: str) -> list[str]:
+        """Extract PDF-like links from a page whose title match was verified.
+
+        University publication pages often render the title near the top but
+        place attachments much farther down the document.  The small
+        title-local window used for broad homepages therefore misses otherwise
+        obvious links such as Drupal attachment blocks.
+        """
+
+        cleaned = unescape(text.replace("\\/", "/"))
+        urls: list[str] = []
+        for raw in re.findall(
+            r"(?:href|src|data-url|url)\s*=\s*[\"']([^\"']+)[\"']",
+            cleaned,
+            flags=re.IGNORECASE,
+        ):
+            url = urljoin(page_url, raw.strip())
+            if FullTextResolver._likely_fulltext_url(url):
+                urls.append(url)
+        for raw in re.findall(r"https?://[^\"'\s<>\\]+", cleaned):
+            url = raw.rstrip(".,);]")
+            if FullTextResolver._likely_fulltext_url(url):
+                urls.append(url)
+        return list(dict.fromkeys(urls))
+
     def _author_page_candidates(self, paper: PaperRecord) -> list[FullTextCandidate]:
         candidates: list[FullTextCandidate] = []
         for page_url in self.author_pages:
@@ -216,7 +615,9 @@ class FullTextResolver:
             except Exception:
                 continue
             text = page.body.decode("utf-8", errors="replace")
-            discovered = self._urls_near_title(text, page.url, paper.title)
+            discovered = self._urls_near_title(
+                text, page.url, _preferred_title(paper)
+            )
             script_urls = [
                 urljoin(page.url, source)
                 for source in re.findall(
@@ -242,7 +643,9 @@ class FullTextResolver:
                         continue
                     script_text = script.body.decode("utf-8", errors="replace")
                     discovered.extend(
-                        self._urls_near_title(script_text, page.url, paper.title)
+                        self._urls_near_title(
+                            script_text, page.url, _preferred_title(paper)
+                        )
                     )
                     if discovered:
                         break
@@ -251,6 +654,222 @@ class FullTextResolver:
                 for url in dict.fromkeys(discovered)
             )
         return candidates
+
+    @staticmethod
+    def _author_match(
+        returned_name: str, targets: list[dict[str, Any]]
+    ) -> dict[str, Any] | None:
+        normalized = _normalize(returned_name)
+        return next(
+            (
+                target
+                for target in targets
+                if _normalize(str(target["display_name"])) == normalized
+                or SequenceMatcher(
+                    None, _normalize(str(target["display_name"])), normalized
+                ).ratio()
+                >= 0.82
+            ),
+            None,
+        )
+
+    def _crawl_auto_author_page(
+        self,
+        *,
+        paper: PaperRecord,
+        page_url: str,
+        author: Mapping[str, Any],
+    ) -> list[FullTextCandidate]:
+        try:
+            page = self._get(page_url)
+        except Exception:
+            return []
+        text = page.body.decode("utf-8", errors="replace")
+        title = _preferred_title(paper)
+        urls = self._urls_near_title(text, page.url, title)
+        # Once the page itself clearly mentions the target title, scan its
+        # whole attachment area.  Every resulting PDF is still independently
+        # title-validated before the resolver accepts it.
+        if self._page_title_matches(text, title):
+            urls.extend(self._fulltext_urls_on_page(text, page.url))
+        return [
+            self._candidate(
+                url,
+                "author_homepage_auto",
+                page.url,
+                author_name=str(author["display_name"]),
+                author_role=str(author["role"]),
+                discovery_method="deepseek_web_search",
+            )
+            for url in list(dict.fromkeys(urls))[:MAX_AUTO_AUTHOR_PAGE_CANDIDATES]
+            if _safe_public_url(url)
+        ]
+
+    @staticmethod
+    def _bounded_auto_candidates(
+        candidates: Iterable[FullTextCandidate],
+    ) -> tuple[list[FullTextCandidate], int]:
+        deduplicated: dict[str, FullTextCandidate] = {}
+        for candidate in candidates:
+            deduplicated.setdefault(candidate.url, candidate)
+        before_limit = len(deduplicated)
+        return list(deduplicated.values())[:MAX_AUTO_AUTHOR_CANDIDATES], before_limit
+
+    def _automatic_author_page_candidates(
+        self,
+        paper: PaperRecord,
+        discovery: list[dict[str, Any]],
+    ) -> list[FullTextCandidate]:
+        targets = _selected_author_targets(paper)
+        if not targets:
+            discovery.append(
+                {
+                    "status": "skipped",
+                    "method": "selected_author_homepage_search",
+                    "detail": "paper has no usable authorship metadata",
+                }
+            )
+            return []
+
+        candidates: list[FullTextCandidate] = []
+        for target in targets:
+            cache_key = str(target.get("author_id") or target["display_name"]).casefold()
+            homepage = _safe_public_url(target.get("homepage_url"))
+            known_pages = [
+                *(self._discovered_author_pages.get(cache_key) or []),
+                *([homepage] if homepage else []),
+            ]
+            for page_url in dict.fromkeys(known_pages):
+                candidates.extend(
+                    self._crawl_auto_author_page(
+                        paper=paper, page_url=page_url, author=target
+                    )
+                )
+        if candidates:
+            bounded, before_limit = self._bounded_auto_candidates(candidates)
+            discovery.append(
+                {
+                    "status": "candidate_found",
+                    "method": "cached_selected_author_homepage",
+                    "authors": [
+                        {"name": item["display_name"], "role": item["role"]}
+                        for item in targets
+                    ],
+                    "candidate_count": len(bounded),
+                    "candidate_count_before_limit": before_limit,
+                    "candidate_limit": MAX_AUTO_AUTHOR_CANDIDATES,
+                }
+            )
+            return bounded
+
+        if self.author_web_search is None:
+            discovery.append(
+                {
+                    "status": "unavailable",
+                    "method": "selected_author_homepage_search",
+                    "authors": [
+                        {"name": item["display_name"], "role": item["role"]}
+                        for item in targets
+                    ],
+                    "detail": "no web-search provider is configured",
+                }
+            )
+            return []
+        try:
+            results = self.author_web_search(paper, targets)
+        except Exception as error:
+            discovery.append(
+                {
+                    "status": "failed",
+                    "method": "deepseek_web_search",
+                    "authors": [
+                        {"name": item["display_name"], "role": item["role"]}
+                        for item in targets
+                    ],
+                    "detail": f"{type(error).__name__}: {error}",
+                }
+            )
+            return []
+
+        accepted_pages: list[dict[str, Any]] = []
+        for result in results:
+            author = self._author_match(str(result.get("author_name") or ""), targets)
+            if author is None:
+                continue
+            cache_key = str(author.get("author_id") or author["display_name"]).casefold()
+            homepages = [
+                url
+                for item in result.get("homepage_urls") or []
+                if (url := _safe_public_url(item)) is not None
+            ]
+            publication_pages = [
+                url
+                for item in result.get("publication_page_urls") or []
+                if (url := _safe_public_url(item)) is not None
+            ]
+            pdf_urls = [
+                url
+                for item in result.get("pdf_urls") or []
+                if (url := _safe_public_url(item)) is not None
+                and self._likely_fulltext_url(url)
+            ]
+            self._discovered_author_pages.setdefault(cache_key, []).extend(homepages)
+            source_page = next(iter(publication_pages or homepages), None)
+            candidates.extend(
+                self._candidate(
+                    url,
+                    "author_homepage_auto",
+                    source_page,
+                    author_name=str(author["display_name"]),
+                    author_role=str(author["role"]),
+                    discovery_method="deepseek_web_search",
+                )
+                for url in pdf_urls
+            )
+            for page_url in dict.fromkeys([*publication_pages, *homepages]):
+                if self._likely_fulltext_url(page_url):
+                    candidates.append(
+                        self._candidate(
+                            page_url,
+                            "author_homepage_auto",
+                            page_url,
+                            author_name=str(author["display_name"]),
+                            author_role=str(author["role"]),
+                            discovery_method="deepseek_web_search",
+                        )
+                    )
+                else:
+                    candidates.extend(
+                        self._crawl_auto_author_page(
+                            paper=paper, page_url=page_url, author=author
+                        )
+                    )
+            accepted_pages.append(
+                {
+                    "name": author["display_name"],
+                    "role": author["role"],
+                    "homepage_urls": homepages,
+                    "publication_page_urls": publication_pages,
+                    "pdf_urls": pdf_urls,
+                }
+            )
+
+        bounded, before_limit = self._bounded_auto_candidates(candidates)
+        discovery.append(
+            {
+                "status": "candidate_found" if bounded else "not_found",
+                "method": "deepseek_web_search",
+                "authors": accepted_pages
+                or [
+                    {"name": item["display_name"], "role": item["role"]}
+                    for item in targets
+                ],
+                "candidate_count": len(bounded),
+                "candidate_count_before_limit": before_limit,
+                "candidate_limit": MAX_AUTO_AUTHOR_CANDIDATES,
+            }
+        )
+        return bounded
 
     def _doi_candidates(self, paper: PaperRecord) -> list[FullTextCandidate]:
         doi = str(paper.metadata.get("doi") or "")
@@ -264,7 +883,7 @@ class FullTextResolver:
         if payload.body.startswith(b"%PDF"):
             return [self._candidate(payload.url, "doi_landing", doi_url)]
         text = payload.body.decode("utf-8", errors="replace")
-        urls = self._urls_near_title(text, payload.url, paper.title)
+        urls = self._urls_near_title(text, payload.url, _preferred_title(paper))
         # Publisher pages often put PDF links outside the title container.
         urls.extend(
             urljoin(payload.url, value)
@@ -280,9 +899,10 @@ class FullTextResolver:
         ]
 
     def _arxiv_candidates(self, paper: PaperRecord) -> list[FullTextCandidate]:
+        title = _preferred_title(paper)
         query = urlencode(
             {
-                "search_query": f'ti:"{paper.title}"',
+                "search_query": f'ti:"{title}"',
                 "start": 0,
                 "max_results": 5,
             }
@@ -297,7 +917,9 @@ class FullTextResolver:
         candidates: list[FullTextCandidate] = []
         for entry in root.findall("atom:entry", namespace):
             title = " ".join((entry.findtext("atom:title", "", namespace)).split())
-            score = SequenceMatcher(None, _normalize(paper.title), _normalize(title)).ratio()
+            score = SequenceMatcher(
+                None, _normalize(_preferred_title(paper)), _normalize(title)
+            ).ratio()
             if score < 0.72:
                 continue
             entry_id = entry.findtext("atom:id", "", namespace)
@@ -307,8 +929,9 @@ class FullTextResolver:
         return candidates
 
     def _dblp_candidates(self, paper: PaperRecord) -> list[FullTextCandidate]:
+        title = _preferred_title(paper)
         endpoint = "https://dblp.org/search/publ/api?" + urlencode(
-            {"q": paper.title, "format": "json", "h": 5}
+            {"q": title, "format": "json", "h": 5}
         )
         try:
             payload = json.loads(self._get(endpoint).body.decode("utf-8"))
@@ -319,7 +942,7 @@ class FullTextResolver:
         for hit in hits:
             info = hit.get("info") or {}
             score = SequenceMatcher(
-                None, _normalize(paper.title), _normalize(str(info.get("title") or ""))
+                None, _normalize(title), _normalize(str(info.get("title") or ""))
             ).ratio()
             if score < 0.72:
                 continue
@@ -349,7 +972,9 @@ class FullTextResolver:
         )
 
     def _candidate_stages(
-        self, paper: PaperRecord
+        self,
+        paper: PaperRecord,
+        author_discovery: list[dict[str, Any]] | None = None,
     ) -> Iterable[list[FullTextCandidate]]:
         """Yield progressively more expensive discovery stages.
 
@@ -378,6 +1003,10 @@ class FullTextResolver:
             yield self._arxiv_candidates(paper)
         if self.use_dblp:
             yield self._dblp_candidates(paper)
+        if self.auto_author_homepages:
+            yield self._automatic_author_page_candidates(
+                paper, author_discovery if author_discovery is not None else []
+            )
 
     @staticmethod
     def _validate_pdf(path: Path, expected_title: str) -> float:
@@ -397,9 +1026,10 @@ class FullTextResolver:
         destination_dir.mkdir(parents=True, exist_ok=True)
         destination = destination_dir / _safe_name(paper)
         attempts: list[RetrievalAttempt] = []
+        author_discovery: list[dict[str, Any]] = []
 
         seen_urls: set[str] = set()
-        for stage in self._candidate_stages(paper):
+        for stage in self._candidate_stages(paper, author_discovery):
             for candidate in sorted(
                 stage, key=lambda item: item.priority, reverse=True
             ):
@@ -411,6 +1041,9 @@ class FullTextResolver:
                     provider=candidate.provider,
                     source_page=candidate.source_page,
                     status="failed",
+                    author_name=candidate.author_name,
+                    author_role=candidate.author_role,
+                    discovery_method=candidate.discovery_method,
                 )
                 attempts.append(attempt)
                 temporary: Path | None = None
@@ -425,7 +1058,7 @@ class FullTextResolver:
                     ) as handle:
                         handle.write(payload.body)
                         temporary = Path(handle.name)
-                    score = self._validate_pdf(temporary, paper.title)
+                    score = self._validate_pdf(temporary, _preferred_title(paper))
                     attempt.title_score = round(score, 4)
                     if score < 0.70:
                         attempt.detail = "PDF title did not match requested paper"
@@ -445,7 +1078,11 @@ class FullTextResolver:
                         source_page=candidate.source_page,
                         sha256=digest,
                         title_score=round(score, 4),
+                        selected_author=candidate.author_name,
+                        selected_author_role=candidate.author_role,
+                        discovery_method=candidate.discovery_method,
                         attempts=attempts,
+                        author_discovery=author_discovery,
                     )
                 except Exception as error:
                     attempt.detail = f"{type(error).__name__}: {error}"
@@ -457,6 +1094,7 @@ class FullTextResolver:
             title=paper.title,
             status="not_found",
             attempts=attempts,
+            author_discovery=author_discovery,
         )
 
 

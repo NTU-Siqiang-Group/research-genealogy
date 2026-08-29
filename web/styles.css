@@ -16,7 +16,7 @@
   --implicit: #7b628f;
   --inheritance: #a8762d;
   --discussion: #66889b;
-  --group: #7d8b84;
+  --group: #66786f;
   --weak: #a9b2ad;
   --weak-soft: #edf0ee;
   --gold: #c79b3a;
@@ -66,16 +66,19 @@ button { color: inherit; }
 .brand-block, .topic-block, .header-actions { display: flex; align-items: center; }
 .brand-block { gap: 13px; color: inherit; text-decoration: none; }
 
-.new-search-button {
+.new-search-button, .header-language-button {
   padding: 7px 10px;
   border: 1px solid rgba(255,255,255,.24);
   border-radius: 7px;
   color: #f5f8f5;
-  text-decoration: none;
+  background: transparent;
   font-size: 11px;
   font-weight: 750;
   white-space: nowrap;
 }
+.new-search-button { text-decoration: none; }
+.header-language-button { min-width: 43px; cursor: pointer; }
+.new-search-button:hover, .header-language-button:hover { background: rgba(255,255,255,.09); }
 
 .brand-mark {
   position: relative;
@@ -317,8 +320,8 @@ kbd { padding: 2px 5px; color: #98a39d; background: #f3f5f2; border: 1px solid #
 .graph-edge { fill: none; stroke-linecap: round; cursor: pointer; transition: opacity .18s, stroke-width .18s; }
 .graph-edge.strong { stroke: var(--strong); stroke-width: 2.2; marker-end: url(#arrow-strong); }
 .graph-edge.medium { stroke: var(--medium); stroke-width: 1.7; stroke-dasharray: 5 4; marker-end: url(#arrow-medium); }
-.graph-edge.medium.supplemental { stroke-width: 1.15; stroke-dasharray: 2 6; opacity: .5; }
-.group-toggle .relation-swatch { background: repeating-linear-gradient(90deg, var(--medium) 0 2px, transparent 2px 5px); }
+.graph-edge.medium.supplemental { stroke-width: 1.3; stroke-dasharray: 2 5; opacity: .68; }
+.group-toggle .relation-swatch { background: repeating-linear-gradient(90deg, var(--group) 0 2px, transparent 2px 5px); }
 .graph-edge.weak { stroke: var(--weak); stroke-width: .8; opacity: .35; marker-end: url(#arrow-weak); }
 .graph-edge.semantic-explicit { stroke: var(--strong); marker-end: url(#arrow-strong); }
 .graph-edge.semantic-implicit { stroke: var(--implicit); marker-end: url(#arrow-implicit); }

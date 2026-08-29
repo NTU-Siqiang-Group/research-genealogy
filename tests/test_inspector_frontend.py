@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -10,14 +11,72 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InspectorFrontendTest(unittest.TestCase):
+    def test_research_group_overlay_is_visible_but_subordinate(self) -> None:
+        css = (ROOT / "web/styles.css").read_text(encoding="utf-8")
+
+        def declarations(selector: str) -> str:
+            match = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", css)
+            self.assertIsNotNone(match, selector)
+            return match.group(1)
+
+        def number(rule: str, property_name: str) -> float:
+            match = re.search(
+                rf"{re.escape(property_name)}\s*:\s*([0-9.]+)", rule
+            )
+            self.assertIsNotNone(match, property_name)
+            return float(match.group(1))
+
+        weak_width = number(declarations(".graph-edge.weak"), "stroke-width")
+        medium_width = number(declarations(".graph-edge.medium"), "stroke-width")
+        group_rule = declarations(".graph-edge.medium.supplemental")
+        group_width = number(group_rule, "stroke-width")
+        group_opacity = number(group_rule, "opacity")
+
+        self.assertGreater(group_width, weak_width)
+        self.assertLess(group_width, medium_width)
+        self.assertGreaterEqual(group_opacity, 0.6)
+        self.assertLess(group_opacity, 1.0)
+
     def test_builder_packages_current_evidence_run(self) -> None:
+        # Reconstruct the builder's two inputs from the checked-in browser
+        # fixture. This keeps the test runnable in a clean clone, where the
+        # generated data/output and data/raw directories intentionally do not
+        # exist.
+        fixture = json.loads(
+            (ROOT / "web/data/inspector.json").read_text(encoding="utf-8")
+        )
         with tempfile.TemporaryDirectory() as directory:
+            dag = Path(directory) / "evolution_dag.json"
+            retrieval = Path(directory) / "retrieval_index.json"
             output = Path(directory) / "inspector.json"
+            dag.write_text(
+                json.dumps(fixture["dag"], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            retrieval.write_text(
+                json.dumps(
+                    {
+                        "retrieved_at": fixture.get("generated_at"),
+                        "papers": [
+                            {"paper_id": paper_id, "status": "retrieved", **item}
+                            for paper_id, item in fixture["fulltext"].items()
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
             subprocess.run(
                 [
                     sys.executable,
                     "-B",
                     str(ROOT / "scripts/07_build_inspector_data.py"),
+                    "--dag",
+                    str(dag),
+                    "--retrieval",
+                    str(retrieval),
+                    "--topic",
+                    fixture["topic"],
                     "--output",
                     str(output),
                 ],
@@ -109,10 +168,12 @@ class InspectorFrontendTest(unittest.TestCase):
             'data-layout="timeline"',
             "EDGE SEMANTICS",
             "OPTIONAL OVERLAY",
-            "只叠加当前视图内的研究组关系，不增加论文",
-            "全引图",
-            "显式 baseline",
-            "隐式 baseline",
+            'data-i18n="inspector.groupNote"',
+            'data-i18n="inspector.mode.corpus"',
+            'data-i18n="inspector.legend.explicit"',
+            'data-i18n="inspector.legend.implicit"',
+            'id="language-toggle"',
+            '<script src="./i18n.js"></script>',
         ):
             self.assertIn(required_id, html)
         for behavior in (
@@ -135,6 +196,8 @@ class InspectorFrontendTest(unittest.TestCase):
             "buildTimelineLayout",
             "assignRouteLanes",
             "balanced_temporal_topological_dag_with_obstacle_routes",
+            'I18n.language === "zh"',
+            "GenealogyI18n",
         ):
             self.assertIn(behavior, script)
         for hidden_control in (
@@ -151,6 +214,24 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertNotIn("`GEN ${index + 1}`", script)
         self.assertNotIn("edge-label-bg", script)
         self.assertIn('markerUnits="userSpaceOnUse"', html)
+
+    def test_frontend_defaults_to_english_and_keeps_shareable_chinese(self) -> None:
+        home = (ROOT / "web/home.html").read_text(encoding="utf-8")
+        inspector = (ROOT / "web/index.html").read_text(encoding="utf-8")
+        home_script = (ROOT / "web/home.js").read_text(encoding="utf-8")
+        i18n = (ROOT / "web/i18n.js").read_text(encoding="utf-8")
+
+        self.assertIn('<html lang="en"', home)
+        self.assertIn('<html lang="en"', inspector)
+        self.assertIn('id="language-toggle"', home)
+        self.assertIn('id="language-toggle"', inspector)
+        self.assertIn('params.get("lang") === "zh" ? "zh" : "en"', i18n)
+        self.assertIn('url.searchParams.set("lang", "zh")', i18n)
+        self.assertIn('"home.heroTitleLead": "From one paper, trace its"', i18n)
+        self.assertIn('"home.heroTitleLead": "从一篇论文，展开它的"', i18n)
+        self.assertIn('"relation.EXPLICIT_BASELINE": "Explicit baseline"', i18n)
+        self.assertIn('"relation.EXPLICIT_BASELINE": "显式 baseline"', i18n)
+        self.assertIn("I18n.withLanguage(result.open_url)", home_script)
 
     def test_group_overlay_never_expands_a_mode_paper_set(self) -> None:
         payload = json.loads((ROOT / "web/data/inspector.json").read_text(encoding="utf-8"))

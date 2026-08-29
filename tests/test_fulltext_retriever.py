@@ -5,9 +5,13 @@ import unittest
 from unittest.mock import patch
 
 from src.fulltext_retriever import (
+    DeepSeekAuthorWebSearch,
     FullTextResolver,
     FullTextRetrievalResult,
     HttpPayload,
+    MAX_AUTO_AUTHOR_CANDIDATES,
+    _preferred_title,
+    _selected_author_targets,
     _title_score,
     write_retrieval_index,
 )
@@ -15,6 +19,187 @@ from src.schema import PaperRecord
 
 
 class FullTextRetrieverTest(unittest.TestCase):
+    def test_fulltext_url_detection_ignores_share_wrappers(self) -> None:
+        self.assertTrue(
+            FullTextResolver._likely_fulltext_url(
+                "https://papers.example/target.pdf?download=true"
+            )
+        )
+        self.assertTrue(
+            FullTextResolver._likely_fulltext_url(
+                "https://dl.example/doi/pdf/10.1000/target?download=true"
+            )
+        )
+        self.assertFalse(
+            FullTextResolver._likely_fulltext_url(
+                "https://bsky.app/intent/compose?text=https%3A%2F%2Fpapers.example%2Fold.pdf"
+            )
+        )
+        self.assertFalse(
+            FullTextResolver._likely_fulltext_url(
+                "https://www.bibsonomy.org/editPublication?url=https%3A%2F%2Fpapers.example%2Fold.pdf"
+            )
+        )
+        self.assertFalse(
+            FullTextResolver._likely_fulltext_url(
+                "https://author.example/homepage_assets/pdf/2023TesicCV.pdf"
+            )
+        )
+        self.assertFalse(
+            FullTextResolver._likely_fulltext_url(
+                "https://author.example/files/resume.pdf"
+            )
+        )
+
+    def test_deepseek_author_search_uses_two_stage_responses_protocol(self) -> None:
+        class SearchItem:
+            type = "web_search_call"
+
+            def model_dump(self, exclude_none=True):
+                return {
+                    "type": "web_search_call",
+                    "id": "ws_1",
+                    "status": "completed",
+                    "action": {"type": "search", "query": "target"},
+                }
+
+        class SearchResponse:
+            output = [SearchItem()]
+
+        class CompletedEvent:
+            type = "response.completed"
+            response = SearchResponse()
+
+        class SynthesisResponse:
+            output_text = json.dumps(
+                {
+                    "authors": [
+                        {
+                            "author_name": "First Author",
+                            "homepage_urls": ["https://first.example"],
+                            "publication_page_urls": [],
+                            "pdf_urls": ["https://first.example/target.pdf"],
+                        }
+                    ]
+                }
+            )
+
+        class Responses:
+            def __init__(self):
+                self.calls = []
+
+            def create(self, **kwargs):
+                self.calls.append(kwargs)
+                return [CompletedEvent()] if kwargs.get("stream") else SynthesisResponse()
+
+        responses = Responses()
+        search = DeepSeekAuthorWebSearch.__new__(DeepSeekAuthorWebSearch)
+        search.client = type("Client", (), {"responses": responses})()
+        search.model = "deepseek-v4-flash"
+        search._cache = {}
+        paper = PaperRecord("OPENALEX:W0", "Target Paper", 2025)
+        result = search(
+            paper,
+            [
+                {
+                    "author_id": "OPENALEX:A1",
+                    "display_name": "First Author",
+                    "role": "first_author",
+                    "institutions": ["Example University"],
+                }
+            ],
+        )
+
+        self.assertEqual(result[0]["author_name"], "First Author")
+        self.assertEqual(len(responses.calls), 2)
+        self.assertTrue(responses.calls[0]["stream"])
+        self.assertEqual(
+            responses.calls[1]["input"][1]["type"], "web_search_call"
+        )
+
+    def test_selects_first_and_corresponding_authors_only(self) -> None:
+        paper = PaperRecord(
+            "OPENALEX:W0",
+            "A Paper",
+            metadata={
+                "authorships": [
+                    {
+                        "author_id": "OPENALEX:A1",
+                        "display_name": "First Author",
+                        "byline_index": 0,
+                        "author_position": "first",
+                        "is_corresponding": False,
+                    },
+                    {
+                        "author_id": "OPENALEX:A2",
+                        "display_name": "Middle Author",
+                        "byline_index": 1,
+                        "author_position": "middle",
+                        "is_corresponding": False,
+                    },
+                    {
+                        "author_id": "OPENALEX:A3",
+                        "display_name": "Corresponding Author",
+                        "byline_index": 2,
+                        "author_position": "last",
+                        "is_corresponding": True,
+                    },
+                ]
+            },
+        )
+        targets = _selected_author_targets(paper)
+        self.assertEqual(
+            [(item["display_name"], item["role"]) for item in targets],
+            [
+                ("First Author", "first_author"),
+                ("Corresponding Author", "corresponding_author"),
+            ],
+        )
+
+    def test_uses_last_author_proxy_when_corresponding_metadata_is_absent(self) -> None:
+        paper = PaperRecord(
+            "OPENALEX:W0",
+            "Dostoevsky",
+            metadata={
+                "authorships": [
+                    {
+                        "author_id": "OPENALEX:A1",
+                        "display_name": "Niv Dayan",
+                        "byline_index": 0,
+                        "author_position": "first",
+                        "is_corresponding": False,
+                    },
+                    {
+                        "author_id": "OPENALEX:A2",
+                        "display_name": "Stratos Idreos",
+                        "byline_index": 1,
+                        "author_position": "last",
+                        "is_corresponding": False,
+                    },
+                ]
+            },
+        )
+        targets = _selected_author_targets(paper)
+        self.assertEqual(
+            [(item["display_name"], item["role"]) for item in targets],
+            [
+                ("Niv Dayan", "first_author"),
+                ("Stratos Idreos", "last_author_proxy"),
+            ],
+        )
+
+    def test_prefers_full_seed_title_over_acronym_provider_title(self) -> None:
+        full_title = (
+            "Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based "
+            "Key-Value Stores via Adaptive Removal of Superfluous Merging"
+        )
+        paper = PaperRecord(
+            "OPENALEX:W0",
+            "Dostoevsky",
+            metadata={"title_aliases": [full_title]},
+        )
+        self.assertEqual(_preferred_title(paper), full_title)
+
     def test_discovers_pdf_from_javascript_author_page(self) -> None:
         homepage = "https://group.example/publication"
         script = "https://group.example/static/main.js"
@@ -114,6 +299,254 @@ class FullTextRetrieverTest(unittest.TestCase):
         self.assertEqual(result.status, "retrieved")
         self.assertEqual(result.selected_provider, "author_homepage")
         self.assertEqual(calls, [homepage, pdf])
+
+    def test_automatic_author_search_is_audited_and_title_validated(self) -> None:
+        pdf = "https://first.example/papers/target.pdf"
+        seen_authors: list[tuple[str, str]] = []
+
+        def fake_search(paper, authors):
+            seen_authors.extend(
+                (item["display_name"], item["role"]) for item in authors
+            )
+            return [
+                {
+                    "author_name": "First Author",
+                    "homepage_urls": ["https://first.example/publications"],
+                    "publication_page_urls": [],
+                    "pdf_urls": [pdf],
+                }
+            ]
+
+        def fake_get(url: str) -> HttpPayload:
+            if url == pdf:
+                return HttpPayload(pdf, b"%PDF-fake", "application/pdf")
+            raise AssertionError(f"unexpected URL: {url}")
+
+        paper = PaperRecord(
+            "OPENALEX:W4",
+            "Target",
+            metadata={
+                "title_aliases": ["Target Paper Full Title"],
+                "authorships": [
+                    {
+                        "author_id": "OPENALEX:A1",
+                        "display_name": "First Author",
+                        "byline_index": 0,
+                        "author_position": "first",
+                        "is_corresponding": False,
+                    },
+                    {
+                        "author_id": "OPENALEX:A2",
+                        "display_name": "Middle Author",
+                        "byline_index": 1,
+                        "author_position": "middle",
+                        "is_corresponding": False,
+                    },
+                    {
+                        "author_id": "OPENALEX:A3",
+                        "display_name": "Corresponding Author",
+                        "byline_index": 2,
+                        "author_position": "last",
+                        "is_corresponding": True,
+                    },
+                ],
+            },
+        )
+        resolver = FullTextResolver(
+            use_arxiv=False,
+            use_dblp=False,
+            use_doi=False,
+            auto_author_homepages=True,
+            author_web_search=fake_search,
+            http_get=fake_get,
+        )
+        with tempfile.TemporaryDirectory() as output_dir:
+            with patch.object(
+                FullTextResolver, "_validate_pdf", return_value=1.0
+            ) as validate:
+                result = resolver.retrieve(paper, output_dir)
+
+        self.assertEqual(
+            seen_authors,
+            [
+                ("First Author", "first_author"),
+                ("Corresponding Author", "corresponding_author"),
+            ],
+        )
+        self.assertEqual(result.status, "retrieved")
+        self.assertEqual(result.selected_provider, "author_homepage_auto")
+        self.assertEqual(result.selected_author, "First Author")
+        self.assertEqual(result.selected_author_role, "first_author")
+        self.assertEqual(result.discovery_method, "deepseek_web_search")
+        self.assertEqual(result.author_discovery[0]["status"], "candidate_found")
+        validate.assert_called_once()
+        self.assertEqual(validate.call_args.args[1], "Target Paper Full Title")
+
+    def test_auto_author_page_finds_attachment_far_from_title(self) -> None:
+        page = "https://author.example/publications/target"
+        pdf = "https://author.example/files/target.pdf"
+        title = "Target Paper Full Title"
+
+        def fake_search(paper, authors):
+            return [
+                {
+                    "author_name": "First Author",
+                    "homepage_urls": [],
+                    "publication_page_urls": [page],
+                    "pdf_urls": [],
+                }
+            ]
+
+        def fake_get(url: str) -> HttpPayload:
+            if url == page:
+                return HttpPayload(
+                    page,
+                    (
+                        f"<h1>{title}</h1>"
+                        + ("<div>publication metadata</div>" * 200)
+                        + '<a href="/files/target.pdf">Download paper</a>'
+                    ).encode(),
+                    "text/html",
+                )
+            if url == pdf:
+                return HttpPayload(pdf, b"%PDF-fake", "application/pdf")
+            raise AssertionError(f"unexpected URL: {url}")
+
+        paper = PaperRecord(
+            "OPENALEX:W5",
+            title,
+            metadata={
+                "authorships": [
+                    {
+                        "author_id": "OPENALEX:A1",
+                        "display_name": "First Author",
+                        "byline_index": 0,
+                        "author_position": "first",
+                        "is_corresponding": True,
+                    }
+                ]
+            },
+        )
+        resolver = FullTextResolver(
+            use_arxiv=False,
+            use_dblp=False,
+            use_doi=False,
+            auto_author_homepages=True,
+            author_web_search=fake_search,
+            http_get=fake_get,
+        )
+        with tempfile.TemporaryDirectory() as output_dir:
+            with patch.object(FullTextResolver, "_validate_pdf", return_value=1.0):
+                result = resolver.retrieve(paper, output_dir)
+
+        self.assertEqual(result.status, "retrieved")
+        self.assertEqual(result.selected_url, pdf)
+        self.assertEqual(result.source_page, page)
+        self.assertEqual(result.selected_author, "First Author")
+
+    def test_auto_author_index_only_extracts_pdf_near_target_title(self) -> None:
+        page = "https://author.example/publications"
+        target_pdf = "https://author.example/papers/bam-ann.pdf"
+        old_pdf = "https://author.example/papers/old-work.pdf"
+        title = (
+            "Accelerating Vector Search at Scale: BAM-ANN with Batch-Aware "
+            "Memory-Disk Hybrid Indexing"
+        )
+
+        def fake_search(paper, authors):
+            return [
+                {
+                    "author_name": "First Author",
+                    "homepage_urls": [page],
+                    "publication_page_urls": [],
+                    "pdf_urls": [],
+                }
+            ]
+
+        page_html = (
+            "<html><head><title>First Author — Publications</title></head><body>"
+            f'<a href="{old_pdf}">Old work</a>'
+            + ("<p>unrelated publication metadata</p>" * 100)
+            + f'<article><h2>{title}</h2><a href="{target_pdf}">PDF</a></article>'
+            + ("<p>more unrelated publication metadata</p>" * 100)
+            + '<a href="https://bsky.app/intent/compose?text=https%3A%2F%2Fpapers.example%2Fold.pdf">Share</a>'
+            + "</body></html>"
+        )
+        paper = PaperRecord(
+            "OPENALEX:W6",
+            title,
+            metadata={
+                "authorships": [
+                    {
+                        "author_id": "OPENALEX:A1",
+                        "display_name": "First Author",
+                        "byline_index": 0,
+                        "author_position": "first",
+                        "is_corresponding": True,
+                    }
+                ]
+            },
+        )
+        resolver = FullTextResolver(
+            use_arxiv=False,
+            use_dblp=False,
+            use_doi=False,
+            auto_author_homepages=True,
+            author_web_search=fake_search,
+            http_get=lambda url: HttpPayload(page, page_html.encode(), "text/html"),
+        )
+
+        candidates = resolver.discover(paper)
+
+        self.assertEqual([candidate.url for candidate in candidates], [target_pdf])
+
+    def test_auto_author_candidates_have_audited_safety_limit(self) -> None:
+        def fake_search(paper, authors):
+            return [
+                {
+                    "author_name": "First Author",
+                    "homepage_urls": [],
+                    "publication_page_urls": [],
+                    "pdf_urls": [
+                        f"https://author.example/papers/candidate-{index}.pdf"
+                        for index in range(MAX_AUTO_AUTHOR_CANDIDATES + 5)
+                    ],
+                }
+            ]
+
+        paper = PaperRecord(
+            "OPENALEX:W7",
+            "Target Paper",
+            metadata={
+                "authorships": [
+                    {
+                        "author_id": "OPENALEX:A1",
+                        "display_name": "First Author",
+                        "byline_index": 0,
+                        "author_position": "first",
+                        "is_corresponding": True,
+                    }
+                ]
+            },
+        )
+        resolver = FullTextResolver(
+            use_arxiv=False,
+            use_dblp=False,
+            use_doi=False,
+            auto_author_homepages=True,
+            author_web_search=fake_search,
+        )
+        discovery: list[dict] = []
+
+        candidates = resolver._automatic_author_page_candidates(paper, discovery)
+
+        self.assertEqual(len(candidates), MAX_AUTO_AUTHOR_CANDIDATES)
+        self.assertEqual(discovery[0]["candidate_count"], MAX_AUTO_AUTHOR_CANDIDATES)
+        self.assertEqual(
+            discovery[0]["candidate_count_before_limit"],
+            MAX_AUTO_AUTHOR_CANDIDATES + 5,
+        )
+        self.assertEqual(discovery[0]["candidate_limit"], MAX_AUTO_AUTHOR_CANDIDATES)
 
     def test_retrieval_index_merges_incremental_runs(self) -> None:
         with tempfile.TemporaryDirectory() as output_dir:

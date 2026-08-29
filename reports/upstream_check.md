@@ -1,6 +1,6 @@
 # P0 upstream check
 
-Checked on 2026-08-20 in `/Users/dinghengmo/works/academic_evolution_tree`.
+Checked on 2026-08-20 from the repository root.
 
 ## Pinned revisions
 

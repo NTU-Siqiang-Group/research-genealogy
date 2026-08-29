@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en" data-i18n-document-title="document.inspectorTitle">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Evidence-first academic genealogy inspector"
+      content="Inspect evidence-backed academic lineage, baselines, and citations."
+      data-i18n-content="document.inspectorDescription"
     />
     <title>Research Genealogy Inspector</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
@@ -14,7 +15,7 @@
   <body>
     <div class="app-shell" id="app">
       <header class="topbar">
-        <a class="brand-block" href="/" aria-label="返回搜索首页">
+        <a class="brand-block" href="/" aria-label="Back to search" data-i18n-aria-label="inspector.brandHomeAria" data-preserve-language>
           <div class="brand-mark" aria-hidden="true">
             <span></span><span></span><span></span>
           </div>
@@ -33,9 +34,10 @@
         </div>
 
         <div class="header-actions">
-          <a class="new-search-button" href="/">＋ 新建谱系</a>
+          <button class="header-language-button" id="language-toggle" type="button">中文</button>
+          <a class="new-search-button" href="/" data-i18n="inspector.newSearch" data-preserve-language>+ New genealogy</a>
           <div class="run-pill" id="run-pill">—</div>
-          <button class="icon-button" id="help-button" title="如何阅读这张图" aria-label="帮助">
+          <button class="icon-button" id="help-button" title="How to read this graph" aria-label="Help" data-i18n-title="inspector.helpTitle" data-i18n-aria-label="inspector.helpAria">
             ?
           </button>
         </div>
@@ -45,18 +47,18 @@
         <aside class="control-panel" aria-label="Graph controls">
           <section class="panel-section mode-section">
             <div class="section-label">INSPECTION MODE</div>
-            <div class="mode-switch" role="tablist" aria-label="检查模式">
+            <div class="mode-switch" role="tablist" aria-label="Inspection mode" data-i18n-aria-label="inspector.modeAria">
               <button class="mode-button active" data-mode="lineage" role="tab">
                 <span class="mode-icon lineage-icon"></span>
-                <span><b>主谱系</b><small>Technical lineage</small></span>
+                <span><b data-i18n="inspector.mode.lineage">Lineage</b><small data-i18n="inspector.mode.lineageSub">Narrative skeleton</small></span>
               </button>
               <button class="mode-button" data-mode="evidence" role="tab">
                 <span class="mode-icon evidence-icon"></span>
-                <span><b>证据图</b><small>Evidence map</small></span>
+                <span><b data-i18n="inspector.mode.evidence">Evidence</b><small data-i18n="inspector.mode.evidenceSub">Logical evidence map</small></span>
               </button>
               <button class="mode-button" data-mode="corpus" role="tab">
                 <span class="mode-icon corpus-icon"></span>
-                <span><b>全引图</b><small>Full citation graph</small></span>
+                <span><b data-i18n="inspector.mode.corpus">Corpus</b><small data-i18n="inspector.mode.corpusSub">Full citation graph</small></span>
               </button>
             </div>
           </section>
@@ -65,7 +67,7 @@
             <label class="section-label" for="paper-search">FIND A PAPER</label>
             <div class="search-box">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
-              <input id="paper-search" type="search" placeholder="Title, author or OpenAlex ID" autocomplete="off" />
+              <input id="paper-search" type="search" placeholder="Title, author, or OpenAlex ID" data-i18n-placeholder="inspector.searchPlaceholder" autocomplete="off" />
               <kbd>⌘K</kbd>
             </div>
             <div class="search-results" id="search-results" hidden></div>
@@ -77,23 +79,23 @@
               <input type="checkbox" id="group-layer" />
               <span class="toggle-check"></span>
               <span class="relation-swatch"></span>
-              <span class="relation-copy"><b>同研究组补充</b><small>一作 / 二作 / 通讯作者重叠</small></span>
+              <span class="relation-copy"><b data-i18n="inspector.groupLabel">Research-group context</b><small data-i18n="inspector.groupSub">First / second / corresponding author overlap</small></span>
               <span class="relation-count" id="group-count">—</span>
             </label>
-            <p class="overlay-note">只叠加当前视图内的研究组关系，不增加论文。</p>
+            <p class="overlay-note" data-i18n="inspector.groupNote">Adds group links only between papers already in this view.</p>
           </section>
 
           <section class="panel-section edge-legend-section">
             <div class="section-label">EDGE SEMANTICS</div>
-            <div class="edge-legend" aria-label="边语义图例">
-              <div class="edge-legend-item"><span class="edge-legend-swatch primary"></span><span><b>主干谱系</b><small>dominant · 覆盖语义色</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch explicit"></span><span><b>显式 baseline</b><small>实验中直接对比前作</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch implicit"></span><span><b>隐式 baseline</b><small>通过前作实体或概念对比</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch inheritance"></span><span><b>方法 / 概念继承</b><small>扩展、采用或依赖前作</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch limitation"></span><span><b>回应前作局限</b><small>以其 limitation 为问题起点</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch discussion"></span><span><b>Introduction 讨论</b><small>中关联中的直接讨论</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch group"></span><span><b>研究组补充</b><small>关键作者重叠</small></span></div>
-              <div class="edge-legend-item"><span class="edge-legend-swatch citation"></span><span><b>普通引用</b><small>Related Work / bibliography</small></span></div>
+            <div class="edge-legend" aria-label="Edge semantics legend" data-i18n-aria-label="inspector.legendAria">
+              <div class="edge-legend-item"><span class="edge-legend-swatch primary"></span><span><b data-i18n="inspector.legend.primary">Primary spine</b><small data-i18n="inspector.legend.primarySub">dominant · overrides semantic color</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch explicit"></span><span><b data-i18n="inspector.legend.explicit">Explicit baseline</b><small data-i18n="inspector.legend.explicitSub">directly compared in experiments</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch implicit"></span><span><b data-i18n="inspector.legend.implicit">Implicit baseline</b><small data-i18n="inspector.legend.implicitSub">compared through an artifact or concept</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch inheritance"></span><span><b data-i18n="inspector.legend.inheritance">Method / concept inheritance</b><small data-i18n="inspector.legend.inheritanceSub">extends, adopts, or depends on prior work</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch limitation"></span><span><b data-i18n="inspector.legend.limitation">Addresses a limitation</b><small data-i18n="inspector.legend.limitationSub">starts from a stated prior limitation</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch discussion"></span><span><b data-i18n="inspector.legend.discussion">Introduction discussion</b><small data-i18n="inspector.legend.discussionSub">direct discussion outside Related Work</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch group"></span><span><b data-i18n="inspector.legend.group">Research-group context</b><small data-i18n="inspector.legend.groupSub">key-author overlap</small></span></div>
+              <div class="edge-legend-item"><span class="edge-legend-swatch citation"></span><span><b data-i18n="inspector.legend.citation">Citation</b><small data-i18n="inspector.legend.citationSub">Related Work / bibliography</small></span></div>
             </div>
           </section>
 
@@ -113,24 +115,24 @@
               <span id="view-title">Technical genealogy</span>
               <small id="view-subtitle">Primary spine plus supporting logical relations</small>
             </div>
-            <div class="layout-switch" role="group" aria-label="Graph layout">
-              <button class="layout-button active" data-layout="topology" title="按拓扑关系与时间先验均衡排列">族谱</button>
-              <button class="layout-button" data-layout="timeline" title="按发表年份排列">时间</button>
+            <div class="layout-switch" role="group" aria-label="Graph layout" data-i18n-aria-label="inspector.layoutAria">
+              <button class="layout-button active" data-layout="topology" title="Balanced topology with a temporal prior" data-i18n="inspector.layout.topology" data-i18n-title="inspector.layout.topologyTitle">Lineage</button>
+              <button class="layout-button" data-layout="timeline" title="Place papers by publication year" data-i18n="inspector.layout.timeline" data-i18n-title="inspector.layout.timelineTitle">Timeline</button>
             </div>
             <div class="toolbar-actions">
-              <button class="tool-button" id="zoom-out" title="缩小" aria-label="缩小">−</button>
+              <button class="tool-button" id="zoom-out" title="Zoom out" aria-label="Zoom out" data-i18n-title="inspector.zoomOut" data-i18n-aria-label="inspector.zoomOut">−</button>
               <span class="zoom-readout" id="zoom-readout">100%</span>
-              <button class="tool-button" id="zoom-in" title="放大" aria-label="放大">+</button>
-              <button class="tool-button fit-button" id="fit-view" title="适应画布">Fit</button>
+              <button class="tool-button" id="zoom-in" title="Zoom in" aria-label="Zoom in" data-i18n-title="inspector.zoomIn" data-i18n-aria-label="inspector.zoomIn">+</button>
+              <button class="tool-button fit-button" id="fit-view" title="Fit graph" data-i18n-title="inspector.fit">Fit</button>
             </div>
           </div>
 
           <div class="graph-viewport" id="graph-viewport">
             <div class="loading-state" id="loading-state">
               <div class="loading-glyph"><span></span><span></span><span></span></div>
-              <p>正在装载 evidence graph…</p>
+              <p data-i18n="inspector.loading">Loading evidence graph…</p>
             </div>
-            <svg id="graph-svg" role="img" aria-label="Academic evolution graph" tabindex="0">
+            <svg id="graph-svg" role="img" aria-label="Academic evolution graph" data-i18n-aria-label="inspector.graphAria" tabindex="0">
               <defs>
                 <marker id="arrow-strong" markerWidth="7" markerHeight="7" refX="6" refY="2.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L0,5 L6,2.5 z" /></marker>
                 <marker id="arrow-medium" markerWidth="7" markerHeight="7" refX="6" refY="2.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L0,5 L6,2.5 z" /></marker>
@@ -153,17 +155,18 @@
             <div class="graph-tooltip" id="graph-tooltip" hidden></div>
             <div class="canvas-note">
               <span class="gesture-icon">↔</span>
-              Drag to pan · scroll to zoom · click for evidence
+              <span data-i18n="inspector.canvasNote">Drag to pan · scroll to zoom · click for evidence</span>
             </div>
           </div>
         </section>
 
-        <aside class="inspector-panel" aria-label="Selection details">
+        <aside class="inspector-panel" aria-label="Selection details" data-i18n-aria-label="inspector.selectionAria">
           <div class="inspector-accent"></div>
           <div id="inspector-content"></div>
         </aside>
       </main>
     </div>
+    <script src="./i18n.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

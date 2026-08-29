@@ -1,18 +1,45 @@
-"""Thin wrapper around CoI's existing deep-reference extraction prompt."""
+"""Optional CoI-compatible semantic-profile extraction."""
 
 from __future__ import annotations
 
 import hashlib
-import importlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
-import sys
 from typing import Any, Awaitable, Callable
 
 
 AsyncLLMCall = Callable[[list[dict[str, str]]], Awaitable[str]]
+
+
+def _bundled_reference_prompt(paper_content: str, topic: str) -> str:
+    """Return a self-contained prompt compatible with the legacy CoI parser."""
+
+    return f"""Analyze the supplied paper for the research topic: {topic}.
+
+Extract topic-relevant entities; summarize the background, novelty,
+contribution, methods, detailed rationale, and limitations; describe the
+experimental design and baselines; and select the three most relevant references
+by paper title. Prefer methodological, task, and baseline relevance.
+
+Paper content:
+{paper_content}
+
+Return only this tagged structure:
+<entities>entity names and short descriptions</entities>
+<idea>Background: ...
+Novelty: ...
+Contribution: ...
+Methods: ...
+Detail reason: ...
+Limitation: ...</idea>
+<experiment>experimental process, technical details, and baselines</experiment>
+<references>["Paper title 1", "Paper title 2", "Paper title 3"]</references>
+
+Use <references>[]</references> when no reference is relevant to {topic}.
+"""
 
 
 def _between(text: str, tag: str) -> str:
@@ -63,14 +90,22 @@ class CoISemanticExtractor:
     ) -> None:
         self.llm_call = llm_call
         self.upstream_path = Path(upstream_path).resolve()
-        path = str(self.upstream_path)
-        sys.path.insert(0, path)
-        try:
-            prompts = importlib.import_module("prompts.deep_research_agent_prompts")
+        prompt_path = (
+            self.upstream_path / "prompts" / "deep_research_agent_prompts.py"
+        )
+        if prompt_path.is_file():
+            spec = importlib.util.spec_from_file_location(
+                "research_genealogy_coi_prompts", prompt_path
+            )
+            if spec is None or spec.loader is None:
+                raise RuntimeError(f"cannot load CoI prompt module: {prompt_path}")
+            prompts = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(prompts)
             self._prompt_function = prompts.get_deep_reference_prompt
-        finally:
-            if sys.path and sys.path[0] == path:
-                sys.path.pop(0)
+            self.prompt_source = f"coi_upstream:{prompt_path}"
+        else:
+            self._prompt_function = _bundled_reference_prompt
+            self.prompt_source = "bundled_coi_compatible"
 
     async def extract(self, paper_content: str, topic: str) -> dict[str, Any]:
         prompt = self._prompt_function(paper_content, topic)
@@ -79,13 +114,14 @@ class CoISemanticExtractor:
             raise RuntimeError("CoI extraction LLM returned an empty response")
         return {
             "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            "prompt_source": self.prompt_source,
             "parsed_profile": parse_coi_response(raw_response),
             "raw_response": raw_response,
         }
 
 
 def llm_call_from_environment() -> AsyncLLMCall:
-    """Create an OpenAI-compatible call while retaining CoI's prompt verbatim."""
+    """Create an OpenAI-compatible call for optional profile extraction."""
 
     from openai import AsyncAzureOpenAI, AsyncOpenAI
 

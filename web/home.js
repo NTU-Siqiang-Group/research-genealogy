@@ -1,6 +1,9 @@
 (() => {
   "use strict";
 
+  const I18n = window.GenealogyI18n;
+  const t = I18n.t;
+
   const GOLD_SEEDS = [
     "The Log-Structured Merge-Tree (LSM-Tree)",
     "Monkey: Optimal Navigable Key-Value Store",
@@ -29,16 +32,21 @@
   function formatDate(value) {
     if (!value) return "—";
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("zh-CN", {
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(I18n.language === "zh" ? "zh-CN" : "en-US", {
       month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     }).format(date);
   }
 
   function statusLabel(state) {
-    return ({
-      completed: "已完成", running: "生成中", queued: "排队中",
-      failed: "失败", interrupted: "已中断",
-    })[state] || state || "未知";
+    const key = `status.${state}`;
+    const translated = t(key);
+    return translated === key ? state || t("status.unknown") : translated;
+  }
+
+  function progressLabel(status) {
+    const key = `stage.${status.stage}`;
+    const translated = t(key);
+    return translated === key ? status.message || statusLabel(status.state) : translated;
   }
 
   function make(tag, className, content) {
@@ -54,23 +62,23 @@
     const currentState = status.state || "unknown";
     const card = make("article", "result-card");
     const content = make("div", "result-content");
-    content.append(make("h3", "result-title", result.topic || result.seeds?.[0] || "Untitled genealogy"));
+    content.append(make("h3", "result-title", result.topic || result.seeds?.[0] || t("home.untitled")));
     const displayedSeeds = (result.seeds || []).slice(0, 3);
-    const seedSuffix = (result.seeds || []).length > 3 ? ` 等 ${result.seeds.length} 篇` : "";
+    const seedSuffix = (result.seeds || []).length > 3 ? ` ${t("home.moreSeeds", { count: result.seeds.length })}` : "";
     content.append(make("p", "seed-list", `${displayedSeeds.join(" · ")}${seedSuffix}`));
     const meta = make("div", "result-meta");
-    meta.append(make("span", "", `${summary.paper_count ?? "—"} papers`));
-    meta.append(make("span", "", `${summary.edge_count ?? "—"} relations`));
-    meta.append(make("span", "", `${status.fulltext_retrieved ?? "—"} full texts`));
-    meta.append(make("span", "", `创建于 ${formatDate(result.created_at)}`));
+    meta.append(make("span", "", `${summary.paper_count ?? "—"} ${t("unit.papers")}`));
+    meta.append(make("span", "", `${summary.edge_count ?? "—"} ${t("unit.relations")}`));
+    meta.append(make("span", "", `${status.fulltext_retrieved ?? "—"} ${t("unit.fullTexts")}`));
+    meta.append(make("span", "", t("home.createdAt", { date: formatDate(result.created_at) })));
     meta.append(make("span", "", `ID · ${result.result_id}`));
     content.append(meta);
 
     const actions = make("div", "result-actions");
     actions.append(make("span", `status ${currentState}`, statusLabel(currentState)));
     if (currentState === "completed") {
-      const link = make("a", "open-result", "打开图谱 →");
-      link.href = result.open_url;
+      const link = make("a", "open-result", t("home.openGraph"));
+      link.href = I18n.withLanguage(result.open_url);
       actions.append(link);
     } else {
       const progress = make("div", "progress");
@@ -78,7 +86,7 @@
       const fill = make("div", "progress-fill");
       fill.style.width = `${Math.max(0, Math.min(100, status.progress || 0))}%`;
       track.append(fill);
-      progress.append(track, make("div", "progress-copy", status.message || statusLabel(currentState)));
+      progress.append(track, make("div", "progress-copy", progressLabel(status)));
       actions.append(progress);
     }
     card.append(content, actions);
@@ -92,7 +100,7 @@
       const { results = [] } = await response.json();
       historyList.replaceChildren();
       if (!results.length) {
-        historyList.append(make("div", "empty-card", "还没有保存的结果。输入一篇 seed paper 开始第一张谱系。"));
+        historyList.append(make("div", "empty-card", t("home.historyEmpty")));
       } else {
         results.forEach((result) => historyList.append(renderResult(result)));
       }
@@ -100,8 +108,8 @@
       if (!quiet) showMessage("");
     } catch (error) {
       hasActiveResults = false;
-      historyList.replaceChildren(make("div", "empty-card", "无法连接本地搜索服务。请使用 scripts/09_serve_app.py 启动应用。"));
-      if (!quiet) showMessage(`本地服务不可用：${error.message}`);
+      historyList.replaceChildren(make("div", "empty-card", t("home.historyUnavailable")));
+      if (!quiet) showMessage(t("home.serviceUnavailable", { error: error.message }));
     }
   }
 
@@ -110,7 +118,7 @@
     const seeds = seedInput.value.split("\n").map((item) => item.trim()).filter(Boolean);
     if (!seeds.length) return;
     submitButton.disabled = true;
-    showMessage("正在创建持久化搜索任务…");
+    showMessage(t("home.creating"));
     try {
       const response = await fetch("/api/results", {
         method: "POST",
@@ -125,13 +133,13 @@
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       if (payload.reused && payload.result.status?.state === "completed") {
-        window.location.assign(payload.result.open_url);
+        window.location.assign(I18n.withLanguage(payload.result.open_url));
         return;
       }
-      showMessage("任务已创建。可以留在这里查看进度，完成后从历史列表打开；关闭页面也不会丢失结果。");
+      showMessage(t("home.created"));
       await loadHistory({ quiet: true });
     } catch (error) {
-      showMessage(`无法创建任务：${error.message}`);
+      showMessage(t("home.createFailed", { error: error.message }));
     } finally {
       submitButton.disabled = false;
     }

@@ -1,21 +1,19 @@
 (() => {
   "use strict";
 
+  const I18n = window.GenealogyI18n;
+  const t = I18n.t;
   const SVG_NS = "http://www.w3.org/2000/svg";
   const LEVEL_RANK = { weak: 0, medium: 1, strong: 2 };
-  const LEVEL_LABEL = { weak: "弱关联", medium: "中关联", strong: "强关联" };
-  const LEVEL_COLOR = { weak: "#a9b2ad", medium: "#3f78a8", strong: "#c85134" };
-  const RELATION_LABELS = {
-    ADDRESSES_LIMITATION: "回应前作局限",
-    EXPLICIT_BASELINE: "显式 baseline",
-    IMPLICIT_BASELINE: "隐式 baseline",
-    METHOD_DEPENDENCY: "方法依赖",
-    USES_CONCEPT_FROM: "沿用概念",
-    EXTENDS: "扩展前作",
-    SAME_RESEARCH_GROUP: "同研究组（关键作者重叠）",
-    KEY_AUTHOR_OVERLAP: "一作 / 二作 / 通讯作者重叠",
-    CITES: "引用",
+  const LEVEL_LABEL = {
+    weak: t("level.weak"), medium: t("level.medium"), strong: t("level.strong"),
   };
+  const LEVEL_COLOR = { weak: "#a9b2ad", medium: "#3f78a8", strong: "#c85134" };
+  const RELATION_LABELS = Object.fromEntries([
+    "ADDRESSES_LIMITATION", "EXPLICIT_BASELINE", "IMPLICIT_BASELINE",
+    "METHOD_DEPENDENCY", "USES_CONCEPT_FROM", "EXTENDS",
+    "SAME_RESEARCH_GROUP", "KEY_AUTHOR_OVERLAP", "CITES",
+  ].map((relation) => [relation, t(`relation.${relation}`)]));
 
   const state = {
     resultId: null,
@@ -133,7 +131,7 @@
       renderGraph({ fit: true });
     } catch (error) {
       dom.loading.classList.add("error");
-      dom.loading.innerHTML = `<div class="error-message"><b>界面数据加载失败</b><br>${escapeHtml(error.message)}<br><br>请先运行 <code>scripts/07_build_inspector_data.py</code>，并通过本地 HTTP server 打开页面。</div>`;
+      dom.loading.innerHTML = `<div class="error-message"><b>${escapeHtml(t("inspector.loadError"))}</b><br>${escapeHtml(error.message)}<br><br>${escapeHtml(t("inspector.loadErrorHelp"))}</div>`;
     }
   }
 
@@ -170,6 +168,7 @@
 
   function syncLocation() {
     const params = new URLSearchParams();
+    if (I18n.language === "zh") params.set("lang", "zh");
     if (state.resultId) params.set("result", state.resultId);
     if (state.mode !== "lineage") params.set("mode", state.mode);
     if (state.showGroupEdges) params.set("group", "1");
@@ -277,7 +276,7 @@
       .slice(0, 8);
     dom.searchResults.innerHTML = matches.length
       ? matches.map(({ node }) => `<button class="search-result" data-search-paper="${escapeHtml(node.paper_id)}"><b>${escapeHtml(node.title)}</b><small>${node.year || "Unknown year"} · ${escapeHtml(node.venue || node.paper_id)}</small></button>`).join("")
-      : `<div class="search-result"><small>No matching paper</small></div>`;
+      : `<div class="search-result"><small>${escapeHtml(t("inspector.noMatchingPaper"))}</small></div>`;
     dom.searchResults.hidden = false;
     dom.searchResults.querySelectorAll("[data-search-paper]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1040,35 +1039,14 @@
   function renderEmptyInspector() {
     const summary = state.payload?.summary || {};
     const graph = activeGraph();
+    const prefix = `guide.${state.mode}`;
     const copy = {
-      lineage: {
-        title: "从稀疏主线理解研究演进",
-        description: "主谱系保留全部强关联，并只为没有强父边的论文补充一条最有信息量的中关联。",
-        guides: [
-          ["先看稀疏叙事骨架", "红色和深绿色是强关联；少量蓝色虚线用于补足没有强父边的论文。"],
-          ["沿深绿色主干追踪", "深绿色边同时是 strong、parent-eligible 和 dominant。"],
-          ["点击论文查看证据", "点击只会打开详情，不会改变当前论文集合；再次点击即可取消选中。"],
-        ],
-      },
-      evidence: {
-        title: "检查完整的逻辑证据网络",
-        description: "证据图展示全部中、强关联，用于检查主谱系省略了哪些交叉关系以及每条关系的原文依据。",
-        guides: [
-          ["查看全部逻辑关系", "强关联和 Introduction / Preliminary 中关联在这里完整保留。"],
-          ["选择关系检查原文", "右侧会列出 section、角色、置信度和全文证据片段。"],
-          ["需要引用全貌时切换视图", "普通引用集中在全引图中，不会混入当前逻辑证据网络。"],
-        ],
-      },
-      corpus: {
-        title: "检查完整引用网络",
-        description: "全引图展示语料中的全部论文和引用关系，用于定位候选论文与查验引用上下文。",
-        guides: [
-          ["按发表年份浏览", "全引图默认使用时间布局，便于定位论文所处阶段。"],
-          ["选择论文查看关系", "右侧列出其最强连接、元数据与可用全文。"],
-          ["按目的切换视图", "主谱系负责简洁叙事，证据图负责完整逻辑关系，全引图负责普通引用。"],
-        ],
-      },
-    }[state.mode];
+      title: t(`${prefix}Title`),
+      description: t(`${prefix}Description`),
+      guides: [1, 2, 3].map((index) => [
+        t(`${prefix}${index}Title`), t(`${prefix}${index}Detail`),
+      ]),
+    };
     dom.inspector.innerHTML = `<div class="empty-inspector">
       <div class="empty-hero">
         <div class="inspector-eyebrow">HOW TO READ</div>

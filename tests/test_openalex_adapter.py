@@ -88,6 +88,8 @@ class OpenAlexAdapterTest(unittest.TestCase):
                 {
                     "author_id": "OPENALEX:A1",
                     "display_name": "Niv Dayan",
+                    "orcid": None,
+                    "homepage_url": None,
                     "byline_index": 0,
                     "author_position": "first",
                     "is_corresponding": False,
@@ -96,6 +98,8 @@ class OpenAlexAdapterTest(unittest.TestCase):
                 {
                     "author_id": "OPENALEX:A2",
                     "display_name": "Stratos Idreos",
+                    "orcid": None,
+                    "homepage_url": None,
                     "byline_index": 1,
                     "author_position": "last",
                     "is_corresponding": True,

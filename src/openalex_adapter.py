@@ -149,6 +149,8 @@ def _authorship_records(value: Mapping[str, Any]) -> list[dict[str, Any]]:
             {
                 "author_id": author_id,
                 "display_name": str(display_name or author_id),
+                "orcid": author.get("orcid") or authorship.get("raw_orcid"),
+                "homepage_url": author.get("homepage_url"),
                 # OpenAlex exposes first/middle/last, while the exact byline
                 # index is needed to distinguish the second author.
                 "byline_index": index,

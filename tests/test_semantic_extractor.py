@@ -1,4 +1,5 @@
 import asyncio
+import tempfile
 import unittest
 
 from src.semantic_extractor import CoISemanticExtractor, parse_coi_response
@@ -21,21 +22,24 @@ class SemanticExtractorTest(unittest.TestCase):
         self.assertEqual(profile["methods"], "reinforcement learning")
         self.assertEqual(profile["selected_references"], ["Monkey", "Dostoevsky"])
 
-    def test_uses_upstream_prompt_and_keeps_raw_response(self) -> None:
+    def test_bundled_prompt_keeps_clean_clone_self_contained(self) -> None:
         captured = []
 
         async def fake_call(messages):
             captured.extend(messages)
             return RAW
 
-        result = asyncio.run(
-            CoISemanticExtractor(fake_call).extract("Title: RusKey", "LSM trees")
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(
+                CoISemanticExtractor(fake_call, upstream_path=directory).extract(
+                    "Title: RusKey", "LSM trees"
+                )
+            )
         self.assertEqual(result["raw_response"], RAW)
         self.assertIn("three most relevant references", captured[0]["content"])
         self.assertEqual(len(result["prompt_sha256"]), 64)
+        self.assertEqual(result["prompt_source"], "bundled_coi_compatible")
 
 
 if __name__ == "__main__":
     unittest.main()
-

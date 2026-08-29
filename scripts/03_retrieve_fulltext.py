@@ -13,10 +13,16 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.citation_overlay import load_corpus  # noqa: E402
-from src.fulltext_retriever import FullTextResolver, write_retrieval_index  # noqa: E402
+from src.fulltext_retriever import (  # noqa: E402
+    FullTextResolver,
+    author_web_search_from_environment,
+    write_retrieval_index,
+)
+from src.local_config import load_env_file  # noqa: E402
 
 
 def main() -> int:
+    load_env_file(Path(__file__).resolve().parents[1] / ".env")
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", required=True)
     parser.add_argument("--config", default="configs/fulltext_retrieval.yaml")
@@ -40,12 +46,21 @@ def main() -> int:
         raise ValueError("pass --paper-id at least once or use --missing-only")
 
     config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
+    auto_author_homepages = bool(config.get("auto_author_homepages", True))
+    search_timeout = float(config.get("author_search_timeout_seconds", 45))
+    author_web_search = (
+        author_web_search_from_environment(timeout_seconds=search_timeout)
+        if auto_author_homepages
+        else None
+    )
     resolver = FullTextResolver(
         author_pages=config.get("author_pages") or [],
         overrides=config.get("overrides") or {},
         use_arxiv=bool(config.get("use_arxiv", True)),
         use_dblp=bool(config.get("use_dblp", True)),
         use_doi=bool(config.get("use_doi", True)),
+        auto_author_homepages=auto_author_homepages,
+        author_web_search=author_web_search,
     )
     results = []
     for paper in selected:

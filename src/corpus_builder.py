@@ -381,6 +381,12 @@ class CorpusBuilder:
         resolved = []
         for seed in seed_queries:
             resolved.append(await self.adapter.resolve_paper(seed))
+        seed_title_aliases: dict[str, list[str]] = {}
+        for seed, paper in zip(seed_queries, resolved, strict=True):
+            if paper is not None and _normalized_title(seed) != _normalized_title(
+                paper.title
+            ):
+                seed_title_aliases.setdefault(paper.paper_id, []).append(seed)
         unresolved = [
             seed for seed, paper in zip(seed_queries, resolved, strict=True) if paper is None
         ]
@@ -426,6 +432,8 @@ class CorpusBuilder:
                 still_unresolved.append(seed)
             else:
                 forced_ids.add(match.paper_id)
+                if _normalized_title(seed) != _normalized_title(match.title):
+                    seed_title_aliases.setdefault(match.paper_id, []).append(seed)
         unresolved = still_unresolved
 
         # OpenAlex may represent a preprint and venue version as separate works
@@ -457,6 +465,10 @@ class CorpusBuilder:
                 dict.fromkeys(aliases.get(item, item) for item in paper.citations)
             )
         forced_ids = {aliases.get(paper_id, paper_id) for paper_id in forced_ids}
+        seed_title_aliases = {
+            aliases.get(paper_id, paper_id): list(dict.fromkeys(values))
+            for paper_id, values in seed_title_aliases.items()
+        }
         records = canonical_records
 
         ranked = sorted(
@@ -472,6 +484,10 @@ class CorpusBuilder:
         hydrate = getattr(self.adapter, "hydrate_records", None)
         if callable(hydrate):
             selected = await hydrate(selected)
+        for paper in selected:
+            title_aliases = seed_title_aliases.get(paper.paper_id)
+            if title_aliases:
+                paper.metadata["title_aliases"] = title_aliases
         selected_ids = {paper.paper_id for paper in selected}
         for paper in selected:
             paper.references = [

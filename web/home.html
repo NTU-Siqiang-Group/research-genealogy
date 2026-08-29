@@ -1,31 +1,31 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en" data-i18n-document-title="document.homeTitle">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="从一篇或多篇论文生成可查证的研究谱系" />
-    <title>Research Genealogy</title>
+    <meta name="description" content="Turn a seed paper into an evidence-backed research genealogy." data-i18n-content="document.homeDescription" />
+    <title>Research Genealogy — Evidence-first literature maps</title>
     <link rel="icon" href="/web/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/web/home.css" />
   </head>
   <body>
     <div class="page-shell">
       <header class="site-header">
-        <a class="wordmark" href="/" aria-label="Research Genealogy 首页">
+        <a class="wordmark" href="/" aria-label="Research Genealogy home" data-i18n-aria-label="home.wordmarkAria" data-preserve-language>
           <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
           <span>Research Genealogy</span>
         </a>
-        <span class="prototype-pill">LOCAL PROTOTYPE</span>
+        <div class="header-tools">
+          <button class="language-button" id="language-toggle" type="button">中文</button>
+          <span class="prototype-pill">LOCAL PROTOTYPE</span>
+        </div>
       </header>
 
       <main>
         <section class="hero">
           <p class="eyebrow">EVIDENCE-FIRST LITERATURE DISCOVERY</p>
-          <h1>从一篇论文，展开它的<br /><em>研究谱系。</em></h1>
-          <p class="hero-copy">
-            输入论文标题、DOI 或 OpenAlex ID。系统会沿引用网络扩张语料，获取可用全文，
-            识别 baseline、方法继承与正文讨论，并生成可回溯证据的有向图。
-          </p>
+          <h1><span data-i18n="home.heroTitleLead">From one paper, trace its</span><br /><em data-i18n="home.heroTitleAccent">research lineage.</em></h1>
+          <p class="hero-copy" data-i18n="home.heroCopy">Enter a title, DOI, or OpenAlex ID. We expand the citation neighborhood, retrieve available full text, detect baselines and method inheritance, then build a directed graph with inspectable evidence.</p>
 
           <form id="search-form" class="search-card">
             <label for="seed-input">SEED PAPER</label>
@@ -35,30 +35,31 @@
                 name="seeds"
                 rows="2"
                 required
-                placeholder="输入一篇论文标题，例如：Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores"
+                placeholder="Enter a paper title, e.g. Dostoevsky: Better Space-Time Trade-Offs for LSM-Tree Based Key-Value Stores"
+                data-i18n-placeholder="home.seedPlaceholder"
               ></textarea>
               <button id="submit-button" type="submit">
-                <span>生成谱系</span><b aria-hidden="true">→</b>
+                <span data-i18n="home.generate">Build genealogy</span><b aria-hidden="true">→</b>
               </button>
             </div>
             <div class="input-footer">
-              <span>多篇 seed 请每行输入一篇</span>
-              <button type="button" id="gold-example" class="text-button">填入 Gold Case</button>
+              <span data-i18n="home.multiSeedHint">One seed per line for a curated multi-paper search</span>
+              <button type="button" id="gold-example" class="text-button" data-i18n="home.fillGold">Load demo seeds</button>
             </div>
 
             <details class="advanced">
-              <summary>搜索范围与采集设置</summary>
+              <summary data-i18n="home.settings">Search and retrieval settings</summary>
               <div class="advanced-grid">
                 <label>
-                  <span>主题提示 <small>可选</small></span>
-                  <input id="topic-input" type="text" placeholder="默认使用第一篇 seed" />
+                  <span><span data-i18n="home.topicHint">Topic hint</span> <small data-i18n="home.optional">optional</small></span>
+                  <input id="topic-input" type="text" placeholder="Defaults to the first seed" data-i18n-placeholder="home.topicPlaceholder" />
                 </label>
                 <label>
-                  <span>语料上限</span>
+                  <span data-i18n="home.corpusCap">Corpus cap</span>
                   <input id="corpus-cap" type="number" min="10" max="500" value="100" />
                 </label>
                 <label>
-                  <span>优先获取全文数</span>
+                  <span data-i18n="home.fulltextLimit">Priority full-text papers</span>
                   <input id="fulltext-limit" type="number" min="0" max="100" value="16" />
                 </label>
               </div>
@@ -71,24 +72,23 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">SAVED LOCALLY</p>
-              <h2 id="history-title">已有研究谱系</h2>
+              <h2 id="history-title" data-i18n="home.savedTitle">Saved genealogies</h2>
             </div>
-            <button id="refresh-history" class="refresh-button" type="button">刷新</button>
+            <button id="refresh-history" class="refresh-button" type="button" data-i18n="home.refresh">Refresh</button>
           </div>
-          <p class="history-intro">
-            每次搜索的输入、OpenAlex 原始响应、全文、证据、图结构和界面数据都保存在独立结果包中；重新打开不会再次搜索。
-          </p>
+          <p class="history-intro" data-i18n="home.historyIntro">Each run keeps its request, raw OpenAlex responses, PDFs, evidence, graph, and UI payload in one local bundle. Reopening a result never reruns the search.</p>
           <div id="history-list" class="history-list" aria-live="polite">
-            <div class="empty-card">正在读取本地结果…</div>
+            <div class="empty-card" data-i18n="home.historyLoading">Loading local results…</div>
           </div>
         </section>
       </main>
 
       <footer>
         <span>Research Genealogy Prototype</span>
-        <span>Private, local result archive</span>
+        <span data-i18n="home.footerArchive">Private, local result archive</span>
       </footer>
     </div>
+    <script src="/web/i18n.js"></script>
     <script src="/web/home.js"></script>
   </body>
 </html>

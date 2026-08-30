@@ -123,19 +123,37 @@ python scripts/08_run_search.py \
 
 ## Optional author-homepage fallback
 
-If you have a DeepSeek key, add it to `.env`:
+No LLM key is required for the main pipeline. To enable hosted author-page
+search after deterministic routes fail, set either provider key:
 
 ```dotenv
+# Option A — OpenAI; defaults to gpt-5.4-mini
+OPENAI_API_KEY=your_key_here
+
+# Option B — DeepSeek; defaults to deepseek-v4-flash
 DEEPSEEK_API_KEY=your_key_here
-LLM_PROVIDER=deepseek
-LLM_BASE_URL=https://api.deepseek.com
-LLM_MODEL=deepseek-v4-flash
-LLM_THINKING=disabled
 ```
 
-No OpenAI key and no Ollama installation are required. Without DeepSeek, the
-deterministic OpenAlex/DOI/arXiv/DBLP and configured-page routes still run.
-Never commit `.env`; it is ignored by Git.
+If both keys exist, choose one explicitly:
+
+```dotenv
+AUTHOR_SEARCH_PROVIDER=openai  # or deepseek
+AUTHOR_SEARCH_MODEL=gpt-5.4-mini
+```
+
+OpenAI uses one
+[Responses API web-search](https://developers.openai.com/api/docs/guides/tools-web-search)
+call with structured output. DeepSeek retains its two-stage Responses protocol.
+Advanced users can
+set `AUTHOR_SEARCH_PROVIDER=openai_compatible` together with
+`AUTHOR_SEARCH_API_KEY`, `AUTHOR_SEARCH_BASE_URL`, and `AUTHOR_SEARCH_MODEL` if
+their endpoint implements Responses `web_search` and JSON-schema output.
+
+Every URL returned by any provider remains untrusted: the resolver rejects
+private-network URLs, caps candidates, downloads the file, checks its PDF
+signature, and validates the title before acceptance. Without a hosted key,
+OpenAlex/DOI/arXiv/DBLP and configured-page routes still run. Ollama is not
+required. Never commit `.env`; it is ignored by Git.
 
 ## Result bundles
 

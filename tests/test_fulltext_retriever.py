@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,9 +11,12 @@ from src.fulltext_retriever import (
     FullTextRetrievalResult,
     HttpPayload,
     MAX_AUTO_AUTHOR_CANDIDATES,
+    OpenAIAuthorWebSearch,
     _preferred_title,
     _selected_author_targets,
     _title_score,
+    author_search_settings_from_environment,
+    author_web_search_from_environment,
     write_retrieval_index,
 )
 from src.schema import PaperRecord
@@ -116,6 +120,122 @@ class FullTextRetrieverTest(unittest.TestCase):
         self.assertEqual(
             responses.calls[1]["input"][1]["type"], "web_search_call"
         )
+
+    def test_openai_author_search_uses_single_responses_call(self) -> None:
+        class SearchItem:
+            type = "web_search_call"
+
+        class SearchResponse:
+            output = [SearchItem()]
+            output_text = json.dumps(
+                {
+                    "authors": [
+                        {
+                            "author_name": "First Author",
+                            "homepage_urls": ["https://first.example"],
+                            "publication_page_urls": [],
+                            "pdf_urls": ["https://first.example/target.pdf"],
+                        }
+                    ]
+                }
+            )
+
+        class Responses:
+            def __init__(self):
+                self.calls = []
+
+            def create(self, **kwargs):
+                self.calls.append(kwargs)
+                return SearchResponse()
+
+        responses = Responses()
+        search = OpenAIAuthorWebSearch.__new__(OpenAIAuthorWebSearch)
+        search.client = type("Client", (), {"responses": responses})()
+        search.model = "gpt-5.4-mini"
+        search._cache = {}
+        result = search(
+            PaperRecord("OPENALEX:W0", "Target Paper", 2025),
+            [
+                {
+                    "author_id": "OPENALEX:A1",
+                    "display_name": "First Author",
+                    "role": "first_author",
+                    "institutions": ["Example University"],
+                }
+            ],
+        )
+
+        self.assertEqual(result[0]["author_name"], "First Author")
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(responses.calls[0]["tools"], [{"type": "web_search"}])
+        self.assertEqual(
+            responses.calls[0]["text"]["format"]["name"],
+            "author_homepage_candidates",
+        )
+
+    def test_openai_key_is_auto_detected_for_author_search(self) -> None:
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-openai"}, clear=True):
+            settings = author_search_settings_from_environment()
+
+        self.assertIsNotNone(settings)
+        assert settings is not None
+        self.assertEqual(settings.provider, "openai")
+        self.assertEqual(settings.model, "gpt-5.4-mini")
+        self.assertIsNone(settings.base_url)
+
+    def test_author_provider_override_does_not_inherit_other_provider_model(self) -> None:
+        environment = {
+            "AUTHOR_SEARCH_PROVIDER": "openai",
+            "OPENAI_API_KEY": "test-openai",
+            "LLM_PROVIDER": "deepseek",
+            "LLM_MODEL": "deepseek-v4-flash",
+            "LLM_BASE_URL": "https://api.deepseek.com",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            settings = author_search_settings_from_environment()
+
+        assert settings is not None
+        self.assertEqual(settings.provider, "openai")
+        self.assertEqual(settings.model, "gpt-5.4-mini")
+        self.assertIsNone(settings.base_url)
+
+    def test_compatible_author_provider_requires_explicit_endpoint_and_model(self) -> None:
+        environment = {
+            "AUTHOR_SEARCH_PROVIDER": "openai_compatible",
+            "AUTHOR_SEARCH_API_KEY": "test-compatible",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(ValueError, "requires AUTHOR_SEARCH_BASE_URL"):
+                author_search_settings_from_environment()
+
+    def test_author_search_factory_builds_openai_adapter(self) -> None:
+        environment = {
+            "AUTHOR_SEARCH_PROVIDER": "openai",
+            "OPENAI_API_KEY": "test-openai",
+            "DEEPSEEK_API_KEY": "test-deepseek",
+            "AUTHOR_SEARCH_MODEL": "gpt-5.4-mini",
+        }
+        with patch.dict(os.environ, environment, clear=True), patch(
+            "src.fulltext_retriever.OpenAIAuthorWebSearch"
+        ) as constructor:
+            search = author_web_search_from_environment(timeout_seconds=17)
+
+        self.assertIs(search, constructor.return_value)
+        constructor.assert_called_once_with(
+            api_key="test-openai",
+            base_url=None,
+            model="gpt-5.4-mini",
+            timeout_seconds=17,
+        )
+
+    def test_two_provider_keys_require_an_explicit_author_choice(self) -> None:
+        environment = {
+            "OPENAI_API_KEY": "test-openai",
+            "DEEPSEEK_API_KEY": "test-deepseek",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(ValueError, "choose AUTHOR_SEARCH_PROVIDER"):
+                author_search_settings_from_environment()
 
     def test_selects_first_and_corresponding_authors_only(self) -> None:
         paper = PaperRecord(
@@ -317,6 +437,8 @@ class FullTextRetrieverTest(unittest.TestCase):
                 }
             ]
 
+        fake_search.discovery_method = "openai_web_search"
+
         def fake_get(url: str) -> HttpPayload:
             if url == pdf:
                 return HttpPayload(pdf, b"%PDF-fake", "application/pdf")
@@ -377,7 +499,7 @@ class FullTextRetrieverTest(unittest.TestCase):
         self.assertEqual(result.selected_provider, "author_homepage_auto")
         self.assertEqual(result.selected_author, "First Author")
         self.assertEqual(result.selected_author_role, "first_author")
-        self.assertEqual(result.discovery_method, "deepseek_web_search")
+        self.assertEqual(result.discovery_method, "openai_web_search")
         self.assertEqual(result.author_discovery[0]["status"], "candidate_found")
         validate.assert_called_once()
         self.assertEqual(validate.call_args.args[1], "Target Paper Full Title")

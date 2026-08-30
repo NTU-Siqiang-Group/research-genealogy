@@ -245,12 +245,162 @@ def _parse_json_object(text: str) -> dict[str, Any]:
 AuthorWebSearch = Callable[[PaperRecord, list[dict[str, Any]]], list[dict[str, Any]]]
 
 
+def _author_search_request(
+    paper: PaperRecord, authors: list[dict[str, Any]]
+) -> tuple[str, str, dict[str, Any]]:
+    author_lines = "\n".join(
+        f"- {item['display_name']} ({item['role']}), affiliations: "
+        + (", ".join(item.get("institutions") or []) or "unknown")
+        for item in authors
+    )
+    instructions = (
+        "Use web search separately for every listed author. Search the exact "
+        "paper title together with that author's full name and PDF. Find the "
+        "author's official personal, university, or research-group homepage, "
+        "then look for an official publication entry and a direct PDF URL. "
+        "Prefer author-controlled static files (including GitHub Pages) over "
+        "publisher landing pages, because publisher pages may be inaccessible. "
+        "Do not stop after finding only a publication page when a direct PDF "
+        "can be located through another exact-title search. Return only "
+        "verified-looking candidate URLs. Exclude ResearchGate, Academia.edu, "
+        "social networks, piracy sites, and unrelated people. A URL is only a "
+        "candidate; the caller will independently fetch and validate the PDF "
+        "title."
+    )
+    input_text = (
+        f"Paper title: {_preferred_title(paper)}\n"
+        f"Year: {paper.year or 'unknown'}\n"
+        f"DOI: {paper.metadata.get('doi') or 'unknown'}\n"
+        f"Selected authors:\n{author_lines}"
+    )
+    output_format = {
+        "type": "json_schema",
+        "name": "author_homepage_candidates",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "author_name": {"type": "string"},
+                            "homepage_urls": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "publication_page_urls": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "pdf_urls": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": [
+                            "author_name",
+                            "homepage_urls",
+                            "publication_page_urls",
+                            "pdf_urls",
+                        ],
+                    },
+                }
+            },
+            "required": ["authors"],
+        },
+    }
+    return instructions, input_text, output_format
+
+
+def _author_search_results(value: str) -> list[dict[str, Any]]:
+    parsed = _parse_json_object(value)
+    return [
+        dict(item)
+        for item in parsed.get("authors") or []
+        if isinstance(item, Mapping)
+    ]
+
+
+def _author_search_cache_key(
+    paper: PaperRecord, authors: list[dict[str, Any]]
+) -> str:
+    return paper.paper_id + "|" + "|".join(
+        str(item.get("author_id") or item["display_name"]) for item in authors
+    )
+
+
+class OpenAIAuthorWebSearch:
+    """Discover author-controlled full-text candidates with OpenAI web search."""
+
+    discovery_method = "openai_web_search"
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str | None = None,
+        model: str = "gpt-5.4-mini",
+        timeout_seconds: float = 45.0,
+    ) -> None:
+        from openai import OpenAI
+
+        options: dict[str, Any] = {
+            "api_key": api_key,
+            "timeout": timeout_seconds,
+            "max_retries": 0,
+        }
+        if base_url:
+            options["base_url"] = base_url
+        self.client = OpenAI(**options)
+        self.model = model
+        self._cache: dict[str, list[dict[str, Any]]] = {}
+
+    def __call__(
+        self, paper: PaperRecord, authors: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        cache_key = _author_search_cache_key(paper, authors)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        instructions, input_text, output_format = _author_search_request(
+            paper, authors
+        )
+        response = self.client.responses.create(
+            model=self.model,
+            instructions=instructions,
+            input=input_text,
+            tools=[{"type": "web_search"}],
+            tool_choice={"type": "web_search"},
+            text={"format": output_format},
+            max_output_tokens=1200,
+        )
+        if not any(
+            getattr(item, "type", None) == "web_search_call"
+            for item in response.output
+        ):
+            raise RuntimeError("author web search returned no search actions")
+        results = _author_search_results(response.output_text or "")
+        self._cache[cache_key] = results
+        return results
+
+
+class OpenAICompatibleAuthorWebSearch(OpenAIAuthorWebSearch):
+    """Use an endpoint implementing Responses web search and structured output."""
+
+    discovery_method = "openai_compatible_web_search"
+
+
 class DeepSeekAuthorWebSearch:
     """Generate author-controlled homepage/PDF candidates with web search.
 
     Search output is only candidate generation.  ``FullTextResolver`` still
     downloads and title-validates every returned PDF before accepting it.
     """
+
+    discovery_method = "deepseek_web_search"
 
     def __init__(
         self,
@@ -274,76 +424,12 @@ class DeepSeekAuthorWebSearch:
     def __call__(
         self, paper: PaperRecord, authors: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        cache_key = paper.paper_id + "|" + "|".join(
-            str(item.get("author_id") or item["display_name"]) for item in authors
-        )
+        cache_key = _author_search_cache_key(paper, authors)
         if cache_key in self._cache:
             return self._cache[cache_key]
-        author_lines = "\n".join(
-            f"- {item['display_name']} ({item['role']}), affiliations: "
-            + (", ".join(item.get("institutions") or []) or "unknown")
-            for item in authors
+        instructions, input_text, output_format = _author_search_request(
+            paper, authors
         )
-        instructions = (
-            "Use web search separately for every listed author. Search the exact "
-            "paper title together with that author's full name and PDF. Find the "
-            "author's official personal, university, or research-group homepage, "
-            "then look for an official publication entry and a direct PDF URL. "
-            "Prefer author-controlled static files (including GitHub Pages) over "
-            "publisher landing pages, because publisher pages may be inaccessible. "
-            "Do not stop after finding only a publication page when a direct PDF "
-            "can be located through another exact-title search. Return only "
-            "verified-looking candidate URLs. Exclude ResearchGate, Academia.edu, "
-            "social networks, piracy sites, and unrelated people. A URL is only a "
-            "candidate; the caller will independently fetch and validate the PDF "
-            "title."
-        )
-        input_text = (
-            f"Paper title: {_preferred_title(paper)}\n"
-            f"Year: {paper.year or 'unknown'}\n"
-            f"DOI: {paper.metadata.get('doi') or 'unknown'}\n"
-            f"Selected authors:\n{author_lines}"
-        )
-        output_format = {
-            "type": "json_schema",
-            "name": "author_homepage_candidates",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "authors": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "author_name": {"type": "string"},
-                                "homepage_urls": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                },
-                                "publication_page_urls": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                },
-                                "pdf_urls": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                },
-                            },
-                            "required": [
-                                "author_name",
-                                "homepage_urls",
-                                "publication_page_urls",
-                                "pdf_urls",
-                            ],
-                        },
-                    }
-                },
-                "required": ["authors"],
-            },
-        }
         stream = self.client.responses.create(
             model=self.model,
             instructions=instructions,
@@ -389,34 +475,141 @@ class DeepSeekAuthorWebSearch:
             text={"format": output_format},
             max_output_tokens=1200,
         )
-        parsed = _parse_json_object(synthesis.output_text or "")
-        results = [
-            dict(item)
-            for item in parsed.get("authors") or []
-            if isinstance(item, Mapping)
-        ]
+        results = _author_search_results(synthesis.output_text or "")
         self._cache[cache_key] = results
         return results
+
+
+@dataclass(slots=True, frozen=True)
+class AuthorSearchSettings:
+    provider: str
+    api_key: str
+    base_url: str | None
+    model: str
+
+
+def _normalized_author_search_provider(value: str) -> str:
+    normalized = value.strip().casefold().replace("-", "_")
+    aliases = {
+        "open_ai": "openai",
+        "deep_seek": "deepseek",
+        "custom": "openai_compatible",
+        "compatible": "openai_compatible",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in {"openai", "deepseek", "openai_compatible"}:
+        raise ValueError(
+            "author web search provider must be openai, deepseek, or "
+            "openai_compatible"
+        )
+    return normalized
+
+
+def author_search_settings_from_environment() -> AuthorSearchSettings | None:
+    """Resolve an isolated author-search provider with legacy LLM fallbacks."""
+
+    author_provider = os.getenv("AUTHOR_SEARCH_PROVIDER")
+    llm_provider = os.getenv("LLM_PROVIDER")
+    if author_provider:
+        provider_value = author_provider
+    elif llm_provider:
+        try:
+            provider_value = _normalized_author_search_provider(llm_provider)
+        except ValueError:
+            # A profile-extraction provider need not support hosted web search.
+            return None
+    else:
+        provider_value = None
+    try:
+        normalized_llm = (
+            _normalized_author_search_provider(llm_provider) if llm_provider else None
+        )
+    except ValueError:
+        normalized_llm = None
+    inherit_llm = not author_provider or (
+        normalized_llm is not None
+        and _normalized_author_search_provider(author_provider) == normalized_llm
+    )
+    base_url = os.getenv("AUTHOR_SEARCH_BASE_URL") or (
+        os.getenv("LLM_BASE_URL") if inherit_llm else None
+    )
+    generic_key = os.getenv("AUTHOR_SEARCH_API_KEY") or (
+        os.getenv("LLM_API_KEY") if inherit_llm else None
+    )
+    if provider_value:
+        provider = _normalized_author_search_provider(provider_value)
+    elif base_url and "deepseek.com" in base_url.casefold():
+        provider = "deepseek"
+    elif base_url and "openai.com" in base_url.casefold():
+        provider = "openai"
+    else:
+        available = [
+            name
+            for name, key in (
+                ("openai", os.getenv("OPENAI_API_KEY")),
+                ("deepseek", os.getenv("DEEPSEEK_API_KEY")),
+            )
+            if key
+        ]
+        if len(available) == 1:
+            provider = available[0]
+        elif len(available) > 1:
+            raise ValueError(
+                "both OPENAI_API_KEY and DEEPSEEK_API_KEY are set; choose "
+                "AUTHOR_SEARCH_PROVIDER"
+            )
+        elif generic_key:
+            raise ValueError(
+                "AUTHOR_SEARCH_API_KEY requires AUTHOR_SEARCH_PROVIDER"
+            )
+        else:
+            return None
+
+    provider_key = {
+        "openai": os.getenv("OPENAI_API_KEY"),
+        "deepseek": os.getenv("DEEPSEEK_API_KEY"),
+        "openai_compatible": None,
+    }[provider]
+    api_key = generic_key or provider_key
+    if not api_key:
+        return None
+
+    if not base_url and provider == "openai":
+        base_url = os.getenv("OPENAI_BASE_URL")
+    if not base_url and provider == "deepseek":
+        base_url = "https://api.deepseek.com"
+    model = os.getenv("AUTHOR_SEARCH_MODEL") or (
+        os.getenv("LLM_MODEL") if inherit_llm else None
+    )
+    if not model:
+        model = {
+            "openai": "gpt-5.4-mini",
+            "deepseek": "deepseek-v4-flash",
+            "openai_compatible": "",
+        }[provider]
+    if provider == "openai_compatible" and (not base_url or not model):
+        raise ValueError(
+            "openai_compatible author search requires AUTHOR_SEARCH_BASE_URL "
+            "and AUTHOR_SEARCH_MODEL"
+        )
+    return AuthorSearchSettings(provider, api_key, base_url, model)
 
 
 def author_web_search_from_environment(
     *, timeout_seconds: float = 45.0
 ) -> AuthorWebSearch | None:
-    api_key = os.getenv("AUTHOR_SEARCH_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
-    base_url = os.getenv("AUTHOR_SEARCH_BASE_URL") or os.getenv("LLM_BASE_URL")
-    provider = os.getenv("LLM_PROVIDER", "").casefold()
-    if not api_key or (provider and provider != "deepseek"):
+    settings = author_search_settings_from_environment()
+    if settings is None:
         return None
-    base_url = base_url or "https://api.deepseek.com"
-    if "deepseek.com" not in base_url:
-        return None
-    model = os.getenv("AUTHOR_SEARCH_MODEL") or os.getenv("LLM_MODEL")
-    if not model or not model.startswith("deepseek-v4-flash"):
-        model = "deepseek-v4-flash"
-    return DeepSeekAuthorWebSearch(
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
+    search_class = {
+        "openai": OpenAIAuthorWebSearch,
+        "deepseek": DeepSeekAuthorWebSearch,
+        "openai_compatible": OpenAICompatibleAuthorWebSearch,
+    }[settings.provider]
+    return search_class(
+        api_key=settings.api_key,
+        base_url=settings.base_url,
+        model=settings.model,
         timeout_seconds=timeout_seconds,
     )
 
@@ -469,6 +662,9 @@ class FullTextResolver:
         self.use_doi = use_doi
         self.auto_author_homepages = auto_author_homepages
         self.author_web_search = author_web_search
+        self.author_search_method = str(
+            getattr(author_web_search, "discovery_method", "author_web_search")
+        )
         self.http_get = http_get or _default_http_get
         self._http_cache: dict[str, HttpPayload] = {}
         self._discovered_author_pages: dict[str, list[str]] = {}
@@ -679,6 +875,7 @@ class FullTextResolver:
         paper: PaperRecord,
         page_url: str,
         author: Mapping[str, Any],
+        discovery_method: str = "known_author_homepage",
     ) -> list[FullTextCandidate]:
         try:
             page = self._get(page_url)
@@ -699,7 +896,7 @@ class FullTextResolver:
                 page.url,
                 author_name=str(author["display_name"]),
                 author_role=str(author["role"]),
-                discovery_method="deepseek_web_search",
+                discovery_method=discovery_method,
             )
             for url in list(dict.fromkeys(urls))[:MAX_AUTO_AUTHOR_PAGE_CANDIDATES]
             if _safe_public_url(url)
@@ -742,7 +939,10 @@ class FullTextResolver:
             for page_url in dict.fromkeys(known_pages):
                 candidates.extend(
                     self._crawl_auto_author_page(
-                        paper=paper, page_url=page_url, author=target
+                        paper=paper,
+                        page_url=page_url,
+                        author=target,
+                        discovery_method="known_author_homepage",
                     )
                 )
         if candidates:
@@ -781,7 +981,7 @@ class FullTextResolver:
             discovery.append(
                 {
                     "status": "failed",
-                    "method": "deepseek_web_search",
+                    "method": self.author_search_method,
                     "authors": [
                         {"name": item["display_name"], "role": item["role"]}
                         for item in targets
@@ -822,7 +1022,7 @@ class FullTextResolver:
                     source_page,
                     author_name=str(author["display_name"]),
                     author_role=str(author["role"]),
-                    discovery_method="deepseek_web_search",
+                    discovery_method=self.author_search_method,
                 )
                 for url in pdf_urls
             )
@@ -835,13 +1035,16 @@ class FullTextResolver:
                             page_url,
                             author_name=str(author["display_name"]),
                             author_role=str(author["role"]),
-                            discovery_method="deepseek_web_search",
+                            discovery_method=self.author_search_method,
                         )
                     )
                 else:
                     candidates.extend(
                         self._crawl_auto_author_page(
-                            paper=paper, page_url=page_url, author=author
+                            paper=paper,
+                            page_url=page_url,
+                            author=author,
+                            discovery_method=self.author_search_method,
                         )
                     )
             accepted_pages.append(
@@ -858,7 +1061,7 @@ class FullTextResolver:
         discovery.append(
             {
                 "status": "candidate_found" if bounded else "not_found",
-                "method": "deepseek_web_search",
+                "method": self.author_search_method,
                 "authors": accepted_pages
                 or [
                     {"name": item["display_name"], "role": item["role"]}

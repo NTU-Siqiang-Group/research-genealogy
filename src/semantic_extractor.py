@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import hashlib
 import importlib.util
 import json
@@ -117,7 +118,101 @@ class CoISemanticExtractor:
             "prompt_source": self.prompt_source,
             "parsed_profile": parse_coi_response(raw_response),
             "raw_response": raw_response,
-        }
+    }
+
+
+@dataclass(slots=True, frozen=True)
+class LLMSettings:
+    provider: str
+    api_key: str
+    base_url: str | None
+    model: str
+    thinking: str = "disabled"
+
+
+def _normalized_llm_provider(value: str) -> str:
+    normalized = value.strip().casefold().replace("-", "_")
+    aliases = {
+        "open_ai": "openai",
+        "deep_seek": "deepseek",
+        "custom": "openai_compatible",
+        "compatible": "openai_compatible",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in {"openai", "deepseek", "openai_compatible"}:
+        raise ValueError(
+            "LLM_PROVIDER must be openai, deepseek, or openai_compatible"
+        )
+    return normalized
+
+
+def llm_settings_from_environment() -> LLMSettings:
+    """Resolve provider-specific credentials without mixing unrelated keys."""
+
+    provider_value = os.getenv("LLM_PROVIDER")
+    base_url = os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    generic_key = os.getenv("LLM_API_KEY")
+    if provider_value:
+        provider = _normalized_llm_provider(provider_value)
+    elif base_url and "deepseek.com" in base_url.casefold():
+        provider = "deepseek"
+    elif base_url and "openai.com" in base_url.casefold():
+        provider = "openai"
+    else:
+        available = [
+            name
+            for name, key in (
+                ("openai", os.getenv("OPENAI_API_KEY")),
+                ("deepseek", os.getenv("DEEPSEEK_API_KEY")),
+            )
+            if key
+        ]
+        if len(available) == 1:
+            provider = available[0]
+        elif len(available) > 1:
+            raise ValueError(
+                "both OPENAI_API_KEY and DEEPSEEK_API_KEY are set; choose "
+                "LLM_PROVIDER"
+            )
+        elif generic_key:
+            raise ValueError("LLM_API_KEY requires LLM_PROVIDER")
+        else:
+            raise RuntimeError(
+                "LLM_API_KEY, OPENAI_API_KEY, or DEEPSEEK_API_KEY is required"
+            )
+
+    provider_key = {
+        "openai": os.getenv("OPENAI_API_KEY"),
+        "deepseek": os.getenv("DEEPSEEK_API_KEY"),
+        "openai_compatible": None,
+    }[provider]
+    api_key = generic_key or provider_key
+    if not api_key:
+        raise RuntimeError(f"no API key is configured for LLM_PROVIDER={provider}")
+    if provider == "deepseek" and not base_url:
+        base_url = "https://api.deepseek.com"
+    model = (
+        os.getenv("LLM_MODEL")
+        or os.getenv("CHEAP_LLM_MODEL")
+        or os.getenv("MAIN_LLM_MODEL")
+    )
+    if not model:
+        model = {
+            "openai": "gpt-5.4-mini",
+            "deepseek": "deepseek-chat",
+            "openai_compatible": "",
+        }[provider]
+    if provider == "openai_compatible" and (not base_url or not model):
+        raise ValueError(
+            "openai_compatible requires LLM_BASE_URL and LLM_MODEL"
+        )
+    return LLMSettings(
+        provider=provider,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        thinking=os.getenv("LLM_THINKING", "disabled").casefold(),
+    )
 
 
 def llm_call_from_environment() -> AsyncLLMCall:
@@ -125,38 +220,40 @@ def llm_call_from_environment() -> AsyncLLMCall:
 
     from openai import AsyncAzureOpenAI, AsyncOpenAI
 
-    model = (
-        os.getenv("LLM_MODEL")
-        or os.getenv("CHEAP_LLM_MODEL")
-        or os.getenv("MAIN_LLM_MODEL")
-    )
-    if not model:
-        raise RuntimeError("CHEAP_LLM_MODEL or MAIN_LLM_MODEL is required")
     use_azure = os.getenv("is_azure", "false").casefold() in {"1", "true", "yes"}
-    base_url: str | None = None
     if use_azure:
+        model = (
+            os.getenv("LLM_MODEL")
+            or os.getenv("CHEAP_LLM_MODEL")
+            or os.getenv("MAIN_LLM_MODEL")
+        )
+        if not model:
+            raise RuntimeError("LLM_MODEL is required for Azure OpenAI")
         client = AsyncAzureOpenAI(
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
             api_key=os.environ["AZURE_OPENAI_KEY"],
             api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
         )
+        provider = "azure_openai"
+        thinking = "disabled"
     else:
-        api_key = (
-            os.getenv("LLM_API_KEY")
-            or os.getenv("DEEPSEEK_API_KEY")
-            or os.getenv("OPENAI_API_KEY")
-        )
-        if not api_key:
-            raise RuntimeError(
-                "LLM_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY is required"
-            )
-        base_url = os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+        settings = llm_settings_from_environment()
+        model = settings.model
+        provider = settings.provider
+        thinking = settings.thinking
         client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url or None,
+            api_key=settings.api_key,
+            base_url=settings.base_url or None,
         )
 
     async def call(messages: list[dict[str, str]]) -> str:
+        if provider == "openai":
+            response = await client.responses.create(
+                model=model,
+                input=messages,
+                max_output_tokens=4000,
+            )
+            return response.output_text or ""
         request: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -164,9 +261,7 @@ def llm_call_from_environment() -> AsyncLLMCall:
             "max_tokens": 4000,
             "timeout": 180,
         }
-        provider = os.getenv("LLM_PROVIDER", "").casefold()
-        thinking = os.getenv("LLM_THINKING", "disabled").casefold()
-        if provider == "deepseek" or (base_url and "api.deepseek.com" in base_url):
+        if provider == "deepseek":
             request["extra_body"] = {
                 "thinking": {
                     "type": "enabled" if thinking == "enabled" else "disabled"

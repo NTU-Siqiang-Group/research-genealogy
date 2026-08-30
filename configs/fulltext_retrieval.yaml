@@ -4,10 +4,10 @@
 author_pages:
   - https://siqiangluo.com/publication
 
-# After deterministic OpenAlex/DOI/arXiv/DBLP fallbacks fail, use the
-# project-configured DeepSeek web search to discover pages belonging to the
-# first and corresponding authors. If corresponding metadata is absent, the
-# last author is retained as an explicitly marked proxy.
+# After deterministic OpenAlex/DOI/arXiv/DBLP fallbacks fail, use an optional
+# OpenAI, DeepSeek, or compatible hosted web-search provider to discover pages
+# belonging to first and corresponding authors. If corresponding metadata is
+# absent, the last author is retained as an explicitly marked proxy.
 auto_author_homepages: true
 author_search_timeout_seconds: 90
 

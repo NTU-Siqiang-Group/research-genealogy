@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections import deque
+from collections import Counter, deque
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -25,10 +26,89 @@ def _normalized(value: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
 
 
+_SIMILARITY_STOP_WORDS = {
+    "and",
+    "are",
+    "for",
+    "from",
+    "has",
+    "have",
+    "into",
+    "its",
+    "our",
+    "that",
+    "the",
+    "their",
+    "this",
+    "using",
+    "via",
+    "with",
+}
+
+
+def _content_tokens(value: str) -> list[str]:
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", value.casefold())
+        if len(token) >= 3 and token not in _SIMILARITY_STOP_WORDS
+    ]
+
+
+def _paper_terms(paper: dict[str, Any]) -> list[str]:
+    """Return dependency-free TF-IDF terms with extra title weight."""
+
+    title = _content_tokens(str(paper.get("title") or ""))
+    abstract = _content_tokens(str(paper.get("abstract") or ""))
+    title_bigrams = [f"{left}_{right}" for left, right in zip(title, title[1:])]
+    abstract_bigrams = [
+        f"{left}_{right}" for left, right in zip(abstract, abstract[1:])
+    ]
+    return title * 3 + abstract + title_bigrams * 3 + abstract_bigrams
+
+
+def _semantic_seed_scores(
+    by_id: dict[str, dict[str, Any]], seed_ids: set[str]
+) -> dict[str, float]:
+    """Measure title/abstract similarity to the closest resolved seed.
+
+    This is intentionally local and lightweight: candidate selection must still
+    work in the public installation without an embedding model.  Its purpose is
+    to retain likely descendants when a provider omitted their citation links.
+    """
+
+    terms = {paper_id: _paper_terms(paper) for paper_id, paper in by_id.items()}
+    document_frequency = Counter(
+        term for paper_terms in terms.values() for term in set(paper_terms)
+    )
+    document_count = max(len(terms), 1)
+    vectors: dict[str, dict[str, float]] = {}
+    for paper_id, paper_terms in terms.items():
+        term_frequency = Counter(paper_terms)
+        vector = {
+            term: (1.0 + math.log(count))
+            * (math.log((document_count + 1) / (document_frequency[term] + 1)) + 1.0)
+            for term, count in term_frequency.items()
+        }
+        norm = math.sqrt(sum(weight * weight for weight in vector.values())) or 1.0
+        vectors[paper_id] = {term: weight / norm for term, weight in vector.items()}
+
+    seed_vectors = [vectors[paper_id] for paper_id in seed_ids if paper_id in vectors]
+    scores: dict[str, float] = {}
+    for paper_id, vector in vectors.items():
+        scores[paper_id] = max(
+            (
+                sum(weight * seed.get(term, 0.0) for term, weight in vector.items())
+                for seed in seed_vectors
+            ),
+            default=0.0,
+        )
+    return scores
+
+
 def select_fulltext_candidates(
     corpus: dict[str, Any], seeds: Iterable[str], limit: int
 ) -> list[dict[str, Any]]:
-    """Prioritize seeds and their closest later citing papers for full text."""
+    """Prioritize seeds, then rank candidates by content with a citation bonus."""
 
     if limit <= 0:
         return []
@@ -70,16 +150,23 @@ def select_fulltext_candidates(
     def is_direct_descendant(paper: dict[str, Any]) -> bool:
         return bool(seed_ids & set(map(str, paper.get("references") or [])))
 
+    semantic_scores = _semantic_seed_scores(by_id, seed_ids)
+
     ranked = sorted(
         by_id.items(),
         key=lambda item: (
-            item[0] not in seed_ids,
-            not is_direct_descendant(item[1]),
-            distances[item[0]],
-            -(item[1].get("year") or 0),
-            -(item[1].get("metadata", {}).get("citation_count") or 0),
+            item[0] in seed_ids,
+            # A provider citation is useful but not decisive: OpenAlex can
+            # expose an OA paper with an empty referenced_works list.  A small
+            # bonus preserves that signal while title/abstract similarity can
+            # still rescue metadata-missing descendants such as InfiniGen.
+            semantic_scores[item[0]]
+            + (0.01 if is_direct_descendant(item[1]) else 0.0),
+            item[1].get("year") or 0,
+            item[1].get("metadata", {}).get("citation_count") or 0,
             str(item[1].get("title") or "").casefold(),
         ),
+        reverse=True,
     )[:limit]
     return [
         {
@@ -87,11 +174,14 @@ def select_fulltext_candidates(
             "title": paper.get("title"),
             "year": paper.get("year"),
             "distance_from_seed": None if distances[paper_id] == 10_000 else distances[paper_id],
+            "semantic_similarity": round(semantic_scores[paper_id], 6),
             "selection_reason": (
                 "seed"
                 if paper_id in seed_ids
                 else "direct_descendant"
                 if is_direct_descendant(paper)
+                else "semantic_neighbor"
+                if semantic_scores[paper_id] > 0
                 else "nearest_citation_neighbor"
                 if distances[paper_id] < 10_000
                 else "topic_candidate"
@@ -252,7 +342,10 @@ class SearchPipeline:
             selection_path = directory / "inputs" / "fulltext_selection.json"
             selection_path.write_text(
                 json.dumps(
-                    {"method": "seed_then_nearest_descendants", "papers": candidates},
+                    {
+                        "method": "seed_then_hybrid_semantic_relevance",
+                        "papers": candidates,
+                    },
                     ensure_ascii=False,
                     indent=2,
                 )

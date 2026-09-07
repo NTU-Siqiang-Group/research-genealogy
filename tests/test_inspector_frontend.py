@@ -225,10 +225,20 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertIn('<html lang="en"', inspector)
         self.assertIn('id="language-toggle"', home)
         self.assertIn('id="language-toggle"', inspector)
+        self.assertIn(
+            'id="topic-search-limit" type="number" min="1" max="100" value="100"',
+            home,
+        )
+        self.assertIn(
+            'topic_search_limit: Number(document.querySelector("#topic-search-limit").value)',
+            home_script,
+        )
         self.assertIn('params.get("lang") === "zh" ? "zh" : "en"', i18n)
         self.assertIn('url.searchParams.set("lang", "zh")', i18n)
         self.assertIn('"home.heroTitleLead": "From one paper, trace its"', i18n)
         self.assertIn('"home.heroTitleLead": "从一篇论文，展开它的"', i18n)
+        self.assertIn('"home.topicSearchLimit": "Topic search candidates"', i18n)
+        self.assertIn('"home.topicSearchLimit": "主题搜索候选数"', i18n)
         self.assertIn('"relation.EXPLICIT_BASELINE": "Explicit baseline"', i18n)
         self.assertIn('"relation.EXPLICIT_BASELINE": "显式 baseline"', i18n)
         self.assertIn("I18n.withLanguage(result.open_url)", home_script)

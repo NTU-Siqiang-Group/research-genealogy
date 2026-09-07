@@ -127,6 +127,7 @@
           seeds,
           topic: document.querySelector("#topic-input").value.trim() || undefined,
           corpus_cap: Number(document.querySelector("#corpus-cap").value),
+          topic_search_limit: Number(document.querySelector("#topic-search-limit").value),
           fulltext_limit: Number(document.querySelector("#fulltext-limit").value),
         }),
       });

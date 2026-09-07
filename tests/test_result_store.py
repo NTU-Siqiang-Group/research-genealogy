@@ -13,6 +13,18 @@ class ResultStoreTest(unittest.TestCase):
         self.assertEqual(single["seeds"], ["A Paper"])
         self.assertEqual(multi["seeds"], ["A Paper", "B Paper"])
         self.assertEqual(single["topic"], "A Paper")
+        self.assertEqual(single["topic_search_limit"], 100)
+
+    def test_topic_search_limit_is_tunable_within_openalex_cap(self) -> None:
+        request = normalize_search_request(
+            {"seeds": ["A Paper"], "topic_search_limit": 73}
+        )
+        self.assertEqual(request["topic_search_limit"], 73)
+
+        with self.assertRaisesRegex(ValueError, "topic_search_limit"):
+            normalize_search_request(
+                {"seeds": ["A Paper"], "topic_search_limit": 101}
+            )
 
     def test_result_bundle_is_listable_and_reusable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

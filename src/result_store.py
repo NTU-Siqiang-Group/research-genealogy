@@ -80,7 +80,7 @@ def normalize_search_request(value: Mapping[str, Any]) -> dict[str, Any]:
         "topic": topic,
         "provider": provider,
         "corpus_cap": bounded_int("corpus_cap", 100, 10, 500),
-        "topic_search_limit": bounded_int("topic_search_limit", 40, 1, 100),
+        "topic_search_limit": bounded_int("topic_search_limit", 100, 1, 100),
         "fulltext_limit": bounded_int("fulltext_limit", 16, 0, 100),
     }
 

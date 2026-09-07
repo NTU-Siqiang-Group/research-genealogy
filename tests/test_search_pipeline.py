@@ -55,6 +55,49 @@ class SearchPipelineTest(unittest.TestCase):
             {"OPENALEX:W1", "OPENALEX:W2"},
         )
 
+    def test_semantic_candidate_can_survive_missing_provider_citation(self) -> None:
+        corpus = {
+            "papers": [
+                {
+                    "paper_id": "P:seed",
+                    "title": "GPU Offloading for Language Model Inference",
+                    "year": 2023,
+                    "abstract": "Offload model weights and the KV cache between GPU and CPU memory.",
+                    "references": [],
+                    "metadata": {"citation_count": 20},
+                },
+                {
+                    "paper_id": "P:noisy-citer",
+                    "title": "A General Software Engineering Survey",
+                    "year": 2025,
+                    "abstract": "A broad review of software engineering research.",
+                    "references": ["P:seed"],
+                    "metadata": {"citation_count": 500},
+                },
+                {
+                    "paper_id": "P:metadata-gap",
+                    "title": "Dynamic KV Cache Management for Language Model Inference",
+                    "year": 2024,
+                    "abstract": "Efficient CPU GPU KV cache prefetching for offloading systems.",
+                    # Model the OpenAlex failure: the PDF cites the seed, but
+                    # referenced_works is empty in provider metadata.
+                    "references": [],
+                    "metadata": {"citation_count": 1},
+                },
+            ]
+        }
+
+        selected = select_fulltext_candidates(
+            corpus, ["GPU Offloading for Language Model Inference"], 2
+        )
+
+        self.assertEqual(
+            [item["paper_id"] for item in selected],
+            ["P:seed", "P:metadata-gap"],
+        )
+        self.assertEqual(selected[1]["selection_reason"], "semantic_neighbor")
+        self.assertGreater(selected[1]["semantic_similarity"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

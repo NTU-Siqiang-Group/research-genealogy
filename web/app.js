@@ -1074,6 +1074,86 @@
     }).join("");
   }
 
+  function paperAuthorships(node) {
+    const detailed = Array.isArray(node.metadata?.authorships)
+      ? node.metadata.authorships.filter((author) => author && author.display_name)
+      : [];
+    if (detailed.length) {
+      return detailed
+        .map((author, fallbackIndex) => ({ ...author, fallbackIndex }))
+        .sort((left, right) => {
+          const leftIndex = Number.isFinite(Number(left.byline_index)) ? Number(left.byline_index) : left.fallbackIndex;
+          const rightIndex = Number.isFinite(Number(right.byline_index)) ? Number(right.byline_index) : right.fallbackIndex;
+          return leftIndex - rightIndex;
+        });
+    }
+    const authorNames = Array.isArray(node.metadata?.authors) ? node.metadata.authors : [];
+    return authorNames
+      .filter(Boolean)
+      .map((name, bylineIndex) => ({
+        display_name: name,
+        byline_index: bylineIndex,
+        institutions: [],
+        is_corresponding: false,
+      }));
+  }
+
+  function renderAuthorshipMetadata(node) {
+    const authors = paperAuthorships(node);
+    if (!authors.length) {
+      return `<div class="authorship-card"><div class="authorship-heading">${escapeHtml(t("metadata.authorsAffiliations"))}</div><p class="authorship-empty">${escapeHtml(t("metadata.authorsUnavailable"))}</p></div>`;
+    }
+
+    const institutions = [];
+    const institutionIndexByKey = new Map();
+    const indexInstitution = (institution) => {
+      const name = String(institution?.display_name || "").trim();
+      if (!name) return null;
+      const institutionId = String(institution?.institution_id || "").trim();
+      const key = institutionId || `name:${name.toLocaleLowerCase()}`;
+      if (!institutionIndexByKey.has(key)) {
+        institutionIndexByKey.set(key, institutions.length + 1);
+        institutions.push({ name, institutionId });
+      }
+      return institutionIndexByKey.get(key);
+    };
+
+    const authorRows = authors.map((author) => {
+      const affiliationIndices = [...new Set(
+        (Array.isArray(author.institutions) ? author.institutions : []).map(indexInstitution).filter(Boolean),
+      )];
+      const affiliationNames = affiliationIndices.map((index) => institutions[index - 1].name);
+      const affiliationRefs = affiliationIndices.length
+        ? `<span class="author-affiliation-refs" title="${escapeHtml(affiliationNames.join("; "))}" aria-label="${escapeHtml(`${t("metadata.affiliations")}: ${affiliationNames.join("; ")}`)}">${affiliationIndices.map((index) => `<sup aria-hidden="true">${index}</sup>`).join("")}</span>`
+        : `<span class="author-affiliation-missing" title="${escapeHtml(t("metadata.affiliationUnavailable"))}">—</span>`;
+      return `<div class="author-row" role="listitem">
+        <span class="author-identity"><span class="author-name">${escapeHtml(author.display_name)}</span>${author.is_corresponding ? `<span class="author-role">${escapeHtml(t("metadata.correspondingAuthor"))}</span>` : ""}</span>
+        ${affiliationRefs}
+      </div>`;
+    });
+    const previewLimit = 6;
+    const hiddenAuthorCount = Math.max(0, authorRows.length - previewLimit);
+    const overflow = hiddenAuthorCount
+      ? `<details class="author-overflow"><summary>${escapeHtml(t("metadata.moreAuthors", { count: hiddenAuthorCount }))}</summary><div class="author-list author-list-more" role="list">${authorRows.slice(previewLimit).join("")}</div></details>`
+      : "";
+    const affiliationRows = institutions.map((institution, index) => `<li><span class="affiliation-index" aria-hidden="true">${index + 1}</span><span>${escapeHtml(institution.name)}</span></li>`);
+    const affiliationPreviewLimit = 6;
+    const hiddenAffiliationCount = Math.max(0, affiliationRows.length - affiliationPreviewLimit);
+    const affiliationOverflow = hiddenAffiliationCount
+      ? `<details class="affiliation-overflow"><summary>${escapeHtml(t("metadata.moreAffiliations", { count: hiddenAffiliationCount }))}</summary><ol class="affiliation-list affiliation-list-more" start="${affiliationPreviewLimit + 1}">${affiliationRows.slice(affiliationPreviewLimit).join("")}</ol></details>`
+      : "";
+    const affiliationList = institutions.length
+      ? `<ol class="affiliation-list" aria-label="${escapeHtml(t("metadata.affiliations"))}">${affiliationRows.slice(0, affiliationPreviewLimit).join("")}</ol>${affiliationOverflow}`
+      : `<p class="authorship-empty">${escapeHtml(t("metadata.affiliationsUnavailable"))}</p>`;
+
+    return `<div class="authorship-card">
+      <div class="authorship-heading">${escapeHtml(t("metadata.authorsAffiliations"))}</div>
+      <div class="author-list" role="list">${authorRows.slice(0, previewLimit).join("")}</div>
+      ${overflow}
+      ${affiliationList}
+    </div>`;
+  }
+
   function renderPaperInspector(node) {
     if (!node) return renderEmptyInspector();
     const fulltext = state.payload.fulltext?.[node.paper_id];
@@ -1104,7 +1184,7 @@
         <dt>Citations</dt><dd>${node.metadata?.citation_count ?? "Unknown"}</dd>
         <dt>Open access</dt><dd>${node.metadata?.is_open_access ? "Yes" : "Not reported by OpenAlex"}</dd>
         ${fulltext ? `<dt>Full-text source</dt><dd>${escapeHtml(fulltext.selected_provider || "fallback")} · title score ${fulltext.title_score}</dd>` : ""}
-      </dl></div>
+      </dl>${renderAuthorshipMetadata(node)}</div>
       ${node.abstract ? `<div class="inspector-section"><h3>ABSTRACT</h3><p class="abstract-copy">${escapeHtml(node.abstract)}</p></div>` : ""}
       ${links ? `<div class="action-links">${links}</div>` : ""}
       <div class="inspector-section"><h3>STRONGEST CONNECTIONS</h3><div class="connection-list">${renderConnections(node, connections)}</div></div>

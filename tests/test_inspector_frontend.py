@@ -243,6 +243,41 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertIn('"relation.EXPLICIT_BASELINE": "显式 baseline"', i18n)
         self.assertIn("I18n.withLanguage(result.open_url)", home_script)
 
+    def test_paper_metadata_renders_authors_and_deduplicated_affiliations(self) -> None:
+        script = (ROOT / "web/app.js").read_text(encoding="utf-8")
+        css = (ROOT / "web/styles.css").read_text(encoding="utf-8")
+        i18n = (ROOT / "web/i18n.js").read_text(encoding="utf-8")
+        fixture = json.loads(
+            (ROOT / "web/data/inspector.json").read_text(encoding="utf-8")
+        )
+
+        self.assertIn("function renderAuthorshipMetadata(node)", script)
+        self.assertIn("node.metadata?.authorships", script)
+        self.assertIn("institutionIndexByKey", script)
+        self.assertIn("renderAuthorshipMetadata(node)", script)
+        self.assertIn('class="author-overflow"', script)
+        self.assertIn('class="affiliation-overflow"', script)
+        self.assertIn('class="affiliation-list"', script)
+        self.assertIn(".author-row", css)
+        self.assertIn(".affiliation-index", css)
+        self.assertIn('"metadata.authorsAffiliations": "Authors & affiliations"', i18n)
+        self.assertIn('"metadata.authorsAffiliations": "作者与单位"', i18n)
+        self.assertIn('"metadata.correspondingAuthor": "通讯作者"', i18n)
+
+        nodes_with_authorships = [
+            node
+            for node in fixture["dag"]["nodes"]
+            if node.get("metadata", {}).get("authorships")
+        ]
+        self.assertTrue(nodes_with_authorships)
+        self.assertTrue(
+            any(
+                authorship.get("institutions")
+                for node in nodes_with_authorships
+                for authorship in node["metadata"]["authorships"]
+            )
+        )
+
     def test_group_overlay_never_expands_a_mode_paper_set(self) -> None:
         payload = json.loads((ROOT / "web/data/inspector.json").read_text(encoding="utf-8"))
         nodes = payload["dag"]["nodes"]

@@ -28,12 +28,27 @@ def build_inspector_payload(
     dag_path: str | Path,
     retrieval_path: str | Path,
     topic: str | None = None,
+    corpus_path: str | Path | None = None,
+    seed_paper_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     dag = _read_json(dag_path)
     retrieval = _read_json(retrieval_path)
 
     nodes = dag.get("nodes") or []
     edges = dag.get("edges") or []
+    node_ids = {
+        str(node.get("paper_id"))
+        for node in nodes
+        if isinstance(node, dict) and node.get("paper_id")
+    }
+    corpus = _read_json(corpus_path) if corpus_path else {}
+    requested_seed_ids = [
+        *(str(item) for item in (corpus.get("seed_paper_ids") or [])),
+        *(str(item) for item in (seed_paper_ids or [])),
+    ]
+    resolved_seed_ids = list(
+        dict.fromkeys(item for item in requested_seed_ids if item in node_ids)
+    )
     dag_model = EvolutionDAG.from_dict(dag)
     auto_discovery = discover_auto_branches(dag_model.nodes, dag_model.edges)
     run_metadata = dict(dag.get("run_metadata") or {})
@@ -98,6 +113,7 @@ def build_inspector_payload(
         if f"{edge.source}→{edge.target}" in technical_edge_keys
         for endpoint in (edge.source, edge.target)
     }
+    technical_node_ids.update(resolved_seed_ids)
     narrative_edge_keys = set(auto_discovery["narrative_edge_keys"])
     narrative_node_ids = {
         endpoint
@@ -105,6 +121,14 @@ def build_inspector_payload(
         if f"{edge.source}→{edge.target}" in narrative_edge_keys
         for endpoint in (edge.source, edge.target)
     }
+    narrative_node_ids.update(resolved_seed_ids)
+
+    source_artifacts = {
+        "dag": str(dag_path),
+        "retrieval": str(retrieval_path),
+    }
+    if corpus_path:
+        source_artifacts["corpus"] = str(corpus_path)
 
     return {
         "schema_version": 1,
@@ -112,10 +136,8 @@ def build_inspector_payload(
         "topic": topic
         or run_metadata.get("topic")
         or "Academic research genealogy",
-        "source_artifacts": {
-            "dag": str(dag_path),
-            "retrieval": str(retrieval_path),
-        },
+        "source_artifacts": source_artifacts,
+        "seed_paper_ids": resolved_seed_ids,
         "summary": {
             "paper_count": len(nodes),
             "edge_count": len(edges),
@@ -155,6 +177,16 @@ def main() -> int:
         "--topic",
         help="Optional display topic; otherwise use DAG metadata or a generic label",
     )
+    parser.add_argument(
+        "--corpus",
+        help="Optional corpus JSON carrying the resolved seed_paper_ids",
+    )
+    parser.add_argument(
+        "--seed-paper-id",
+        action="append",
+        default=[],
+        help="Resolved seed ID to keep visible (repeatable; useful for legacy bundles)",
+    )
     parser.add_argument("--output", default="web/data/inspector.json")
     args = parser.parse_args()
 
@@ -162,6 +194,8 @@ def main() -> int:
         dag_path=args.dag,
         retrieval_path=args.retrieval,
         topic=args.topic,
+        corpus_path=args.corpus,
+        seed_paper_ids=args.seed_paper_id,
     )
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

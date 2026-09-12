@@ -12,7 +12,7 @@
   const RELATION_LABELS = Object.fromEntries([
     "ADDRESSES_LIMITATION", "EXPLICIT_BASELINE", "IMPLICIT_BASELINE",
     "METHOD_DEPENDENCY", "USES_CONCEPT_FROM", "EXTENDS",
-    "SAME_RESEARCH_GROUP", "KEY_AUTHOR_OVERLAP", "CITES",
+    "DIRECT_DISCUSSION", "SAME_RESEARCH_GROUP", "KEY_AUTHOR_OVERLAP", "CITES",
   ].map((relation) => [relation, t(`relation.${relation}`)]));
 
   const state = {
@@ -26,6 +26,7 @@
     backboneEdgeKeys: new Set(),
     technicalEdgeKeys: new Set(),
     narrativeEdgeKeys: new Set(),
+    seedPaperIds: new Set(),
     mode: "lineage",
     layoutMode: "topology",
     showGroupEdges: false,
@@ -118,6 +119,9 @@
         state.payload.auto_branch_discovery?.narrative_edge_keys
         || state.payload.auto_branch_discovery?.technical_edge_keys
         || [],
+      );
+      state.seedPaperIds = new Set(
+        (state.payload.seed_paper_ids || []).filter((paperId) => state.nodeById.has(paperId)),
       );
       state.primaryNodeIds = new Set();
       state.edges.filter((edge) => state.backboneEdgeKeys.has(edgeKey(edge))).forEach((edge) => {
@@ -306,6 +310,7 @@
         baseNodeIds.add(edge.source);
         baseNodeIds.add(edge.target);
       });
+      state.seedPaperIds.forEach((paperId) => baseNodeIds.add(paperId));
     }
     const groupEdges = state.edges.filter((edge) =>
       isResearchGroupEdge(edge)
@@ -360,6 +365,7 @@
       return "semantic-inheritance";
     }
     if (logicalRelation === "ADDRESSES_LIMITATION") return "semantic-limitation";
+    if (logicalRelation === "DIRECT_DISCUSSION") return "semantic-discussion";
     if (logicalRelation === "CITES") return "semantic-citation";
     if (edge.association_level === "medium") return "semantic-discussion";
     return "semantic-citation";

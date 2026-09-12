@@ -9,7 +9,7 @@ IDs and is designed to extend one idea chain rather than retain a candidate set.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 import hashlib
 import importlib
@@ -329,11 +329,13 @@ JsonDict = dict[str, Any]
 class CorpusBuildResult:
     papers: list[PaperRecord]
     unresolved_seeds: list[str]
+    seed_paper_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> JsonDict:
         return {
             "papers": [paper.to_dict() for paper in self.papers],
             "unresolved_seeds": self.unresolved_seeds,
+            "seed_paper_ids": self.seed_paper_ids,
         }
 
     def dump(self, path: str | Path) -> None:
@@ -480,7 +482,10 @@ class CorpusBuilder:
             ),
             reverse=True,
         )
-        selected = ranked[:corpus_cap]
+        # The corpus cap bounds discovered context, never the user's resolved
+        # seeds. This matters for multi-seed searches whose seed count happens
+        # to exceed a deliberately small cap.
+        selected = ranked[: max(corpus_cap, len(forced_ids))]
         hydrate = getattr(self.adapter, "hydrate_records", None)
         if callable(hydrate):
             selected = await hydrate(selected)
@@ -497,4 +502,7 @@ class CorpusBuilder:
                 paper_id for paper_id in paper.citations if paper_id in selected_ids
             ]
         selected.sort(key=lambda paper: (paper.year is None, paper.year or 0, paper.title))
-        return CorpusBuildResult(selected, unresolved)
+        seed_paper_ids = [
+            paper.paper_id for paper in selected if paper.paper_id in forced_ids
+        ]
+        return CorpusBuildResult(selected, unresolved, seed_paper_ids)

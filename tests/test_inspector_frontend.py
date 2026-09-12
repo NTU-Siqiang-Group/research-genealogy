@@ -45,9 +45,24 @@ class InspectorFrontendTest(unittest.TestCase):
         fixture = json.loads(
             (ROOT / "web/data/inspector.json").read_text(encoding="utf-8")
         )
+        technical_keys = set(
+            fixture["auto_branch_discovery"]["technical_edge_keys"]
+        )
+        technical_node_ids = {
+            endpoint
+            for edge in fixture["dag"]["edges"]
+            if f"{edge['source']}→{edge['target']}" in technical_keys
+            for endpoint in (edge["source"], edge["target"])
+        }
+        isolated_seed_id = next(
+            node["paper_id"]
+            for node in fixture["dag"]["nodes"]
+            if node["paper_id"] not in technical_node_ids
+        )
         with tempfile.TemporaryDirectory() as directory:
             dag = Path(directory) / "evolution_dag.json"
             retrieval = Path(directory) / "retrieval_index.json"
+            corpus = Path(directory) / "corpus.json"
             output = Path(directory) / "inspector.json"
             dag.write_text(
                 json.dumps(fixture["dag"], ensure_ascii=False),
@@ -66,6 +81,10 @@ class InspectorFrontendTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            corpus.write_text(
+                json.dumps({"seed_paper_ids": [isolated_seed_id]}),
+                encoding="utf-8",
+            )
             subprocess.run(
                 [
                     sys.executable,
@@ -75,6 +94,8 @@ class InspectorFrontendTest(unittest.TestCase):
                     str(dag),
                     "--retrieval",
                     str(retrieval),
+                    "--corpus",
+                    str(corpus),
                     "--topic",
                     fixture["topic"],
                     "--output",
@@ -89,6 +110,7 @@ class InspectorFrontendTest(unittest.TestCase):
 
         self.assertEqual(payload["summary"]["paper_count"], 150)
         self.assertEqual(payload["summary"]["edge_count"], 1318)
+        self.assertEqual(payload["seed_paper_ids"], [isolated_seed_id])
         self.assertEqual(payload["summary"]["evidence_atom_count"], 583)
         self.assertNotIn("landmarks", payload)
         self.assertNotIn("benchmark_branches", payload)
@@ -98,9 +120,9 @@ class InspectorFrontendTest(unittest.TestCase):
         self.assertNotIn("gold", payload["source_artifacts"])
         self.assertEqual(payload["summary"]["display_primary_count"], 4)
         self.assertEqual(payload["summary"]["redundant_primary_count"], 1)
-        self.assertEqual(payload["summary"]["technical_lineage_paper_count"], 20)
+        self.assertEqual(payload["summary"]["technical_lineage_paper_count"], 21)
         self.assertEqual(payload["summary"]["technical_lineage_edge_count"], 27)
-        self.assertEqual(payload["summary"]["narrative_lineage_paper_count"], 10)
+        self.assertEqual(payload["summary"]["narrative_lineage_paper_count"], 11)
         self.assertEqual(payload["summary"]["narrative_lineage_edge_count"], 11)
         self.assertEqual(
             len(payload["auto_branch_discovery"]["narrative_edge_keys"]),
@@ -185,6 +207,8 @@ class InspectorFrontendTest(unittest.TestCase):
             "parent_eligible",
             "showGroupEdges",
             "narrativeEdgeKeys",
+            "seedPaperIds",
+            "state.seedPaperIds.forEach((paperId) => baseNodeIds.add(paperId))",
             "baseNodeIds",
             "layoutEdges: baseEdges",
             "groupEdgeCount",

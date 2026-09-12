@@ -101,7 +101,7 @@ def main() -> int:
             "manifest": str(manifest_path),
             "documents": resolution_stats,
             "association_level_counts": dict(counts),
-            "method": "section_aware_numeric_citation_and_entity_provenance",
+            "method": "section_aware_numeric_or_author_year_citation_and_entity_provenance",
         },
     )
     print(

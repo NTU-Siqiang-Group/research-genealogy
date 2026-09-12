@@ -111,6 +111,8 @@ class CoIRetrievalAdapterTest(unittest.TestCase):
                 )
             )
             self.assertEqual(result.unresolved_seeds, [])
+            self.assertEqual(result.seed_paper_ids, ["S2:root"])
+            self.assertEqual(result.to_dict()["seed_paper_ids"], ["S2:root"])
             self.assertEqual({p.paper_id for p in result.papers}, {"S2:root", "S2:monkey"})
             root = next(p for p in result.papers if p.paper_id == "S2:root")
             self.assertEqual(root.citations, ["S2:monkey"])

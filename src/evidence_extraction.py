@@ -24,7 +24,7 @@ from .schema import EvidenceAtom, EvolutionEdge, PaperRecord
 LEVEL_RANK = {"weak": 0, "medium": 1, "strong": 2}
 
 LIMITATION_CUES = re.compile(
-    r"\b(limit(?:ation|ed|ing|s)?|deficien|drawback|shortcoming|fails?|"
+    r"\b(limit(?:ations?|ed|ing|s)?|deficien|drawback|shortcoming|fails?|"
     r"sub[- ]optimal|not known a priori|remains? open|overlooked|bottleneck)\b",
     re.IGNORECASE,
 )
@@ -48,6 +48,9 @@ DISCUSSION_CUES = re.compile(
     re.IGNORECASE,
 )
 CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;\-–]\s*\d+)*)\]")
+REFERENCE_HEADING_RE = re.compile(
+    r"(?im)^[ \t]*(?:\d+[ \t\f]+)?(?:references|bibliography)[ \t]*$"
+)
 HEADING_RE = re.compile(r"^(\d+(?:\.\d+)*)\s+(.{2,100})$")
 KNOWN_HEADING_WORDS = (
     "abstract",
@@ -80,6 +83,7 @@ class FullTextDocument:
     sections: list[FullTextSection]
     references: dict[int, str] = field(default_factory=dict)
     reference_ids: dict[int, str] = field(default_factory=dict)
+    author_year_reference_ids: dict[str, str] = field(default_factory=dict)
     source_path: str | None = None
 
 
@@ -202,7 +206,7 @@ def split_sections(text: str) -> tuple[list[FullTextSection], str]:
     """Split pdftotext output into numbered sections and bibliography text."""
 
     text = _clean_pdf_text(text)
-    reference_match = re.search(r"(?m)^\s*REFERENCES\s*$", text)
+    reference_match = REFERENCE_HEADING_RE.search(text)
     body = text[: reference_match.start()] if reference_match else text
     bibliography = text[reference_match.end() :] if reference_match else ""
 
@@ -273,13 +277,51 @@ def split_sections(text: str) -> tuple[list[FullTextSection], str]:
 
 
 def parse_bibliography(text: str) -> dict[int, str]:
+    """Parse numbered references or best-effort unnumbered author-year entries."""
+
     starts = list(re.finditer(r"(?m)^\s*\[(\d+)\]\s+", text))
     result: dict[int, str] = {}
-    for index, match in enumerate(starts):
-        end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
-        entry = re.sub(r"\s+", " ", text[match.end() : end]).strip()
-        result[int(match.group(1))] = entry
-    return result
+    if starts:
+        for index, match in enumerate(starts):
+            end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
+            entry = re.sub(r"\s+", " ", text[match.end() : end]).strip()
+            result[int(match.group(1))] = entry
+        return result
+
+    heading = REFERENCE_HEADING_RE.search(text)
+    if heading is None:
+        return result
+    bibliography = text[heading.end() :]
+    entries: list[str] = []
+    current: list[str] = []
+
+    def looks_like_entry_start(line: str) -> bool:
+        if not line or line.casefold().startswith(("http", "www.", "arxiv", "abs/", "//")):
+            return False
+        return bool(
+            re.match(
+                r"^(?:etc\.\s+)?[A-ZÀ-ÖØ-Þ][\w.'’\-À-ÖØ-öø-ÿ]+"
+                r"(?:\s+[A-ZÀ-ÖØ-Þ][\w.'’\-À-ÖØ-öø-ÿ]+){0,5}[,.](?:\s|$)",
+                line,
+            )
+        )
+
+    def has_publication_year(lines: list[str]) -> bool:
+        return bool(
+            re.search(r"(?<!\d)(?:19|20)\d{2}[a-z]?(?!\d)", " ".join(lines))
+        )
+
+    for raw_line in bibliography.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if current and has_publication_year(current) and looks_like_entry_start(line):
+            entries.append(re.sub(r"\s+", " ", " ".join(current)).strip())
+            current = []
+        current.append(line)
+    if current:
+        entries.append(re.sub(r"\s+", " ", " ".join(current)).strip())
+    return {index: entry for index, entry in enumerate(entries, start=1) if entry}
 
 
 def pdf_to_document(pdf_path: str | Path, paper_id: str) -> FullTextDocument:
@@ -305,6 +347,22 @@ def pdf_to_document(pdf_path: str | Path, paper_id: str) -> FullTextDocument:
         references=parse_bibliography(text),
         source_path=str(path),
     )
+
+
+def _author_surname(value: str) -> str:
+    value = re.sub(r"\bet\s+al\.?\b.*$", "", value, flags=re.IGNORECASE)
+    value = re.split(r"\s+(?:and|&)\s+", value, maxsplit=1, flags=re.IGNORECASE)[0]
+    words = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ][\w'’\-À-ÖØ-öø-ÿ]*", value)
+    return _normalize(words[-1]) if words else ""
+
+
+def _reference_author_year_keys(reference: str) -> set[str]:
+    first_author = reference.split(",", 1)[0].split(".", 1)[0]
+    surname = _author_surname(first_author)
+    if not surname:
+        return set()
+    years = re.findall(r"(?<!\d)((?:19|20)\d{2}[a-z]?)(?!\d)", reference)
+    return {f"{surname}:{year.casefold()}" for year in years}
 
 
 def resolve_bibliography(
@@ -350,6 +408,20 @@ def resolve_bibliography(
         if best and best[0] >= 0.72:
             resolved[number] = best[1]
     document.reference_ids = resolved
+    author_year_candidates: dict[str, str | None] = {}
+    for number, paper_id in resolved.items():
+        for key in _reference_author_year_keys(document.references[number]):
+            existing = author_year_candidates.get(key)
+            author_year_candidates[key] = (
+                paper_id if existing is None and key not in author_year_candidates
+                else paper_id if existing == paper_id
+                else None
+            )
+    document.author_year_reference_ids = {
+        key: paper_id
+        for key, paper_id in author_year_candidates.items()
+        if paper_id is not None
+    }
     return resolved
 
 
@@ -375,6 +447,42 @@ def _citation_numbers(marker_body: str) -> list[int]:
         elif part.isdigit():
             result.add(int(part))
     return sorted(result)
+
+
+def _author_year_citations(sentence: str) -> list[tuple[str, str, str]]:
+    """Return marker, first-author surname, and year for author-year citations."""
+
+    result: list[tuple[str, str, str]] = []
+    for match in re.finditer(r"\(([^()]*(?:19|20)\d{2}[a-z]?[^()]*)\)", sentence):
+        marker = match.group(0)
+        for item in re.split(r"\s*;\s*", match.group(1)):
+            year_match = re.search(r"(?<!\d)((?:19|20)\d{2}[a-z]?)(?!\d)", item)
+            if year_match is None:
+                continue
+            author_text = item[: year_match.start()].rstrip(" ,")
+            if not author_text:
+                prefix = sentence[max(0, match.start() - 80) : match.start()]
+                author_match = re.search(
+                    r"([A-ZÀ-ÖØ-Þ][\w'’\-À-ÖØ-öø-ÿ]+(?:\s+et\s+al\.)?)\s*$",
+                    prefix,
+                )
+                author_text = author_match.group(1) if author_match else ""
+            surname = _author_surname(author_text)
+            if surname:
+                result.append((marker, surname, year_match.group(1).casefold()))
+    return result
+
+
+def _resolve_author_year_citation(
+    document: FullTextDocument,
+    surname: str,
+    year: str,
+) -> str | None:
+    exact_key = f"{surname}:{year}"
+    # Do not fall back to corpus-wide surname/year matching: two unrelated
+    # papers by different "Zhang et al." groups in the same year are common.
+    # Requiring a title-resolved bibliography entry keeps this auditable.
+    return document.author_year_reference_ids.get(exact_key)
 
 
 def _title_mentions(paper: PaperRecord, text: str) -> bool:
@@ -403,6 +511,48 @@ def _matching_entity(
     return None
 
 
+def _paper_method_aliases(paper: PaperRecord) -> set[str]:
+    """Extract conservative method names that can anchor direct discussion."""
+
+    aliases: set[str] = set()
+    prefix = paper.title.split(":", 1)[0].strip()
+    if 1 <= len(prefix.split()) <= 4:
+        aliases.add(prefix)
+    for title_alias in paper.metadata.get("title_aliases") or []:
+        alias_prefix = str(title_alias).split(":", 1)[0].strip()
+        if 1 <= len(alias_prefix.split()) <= 4:
+            aliases.add(alias_prefix)
+    aliases.update(
+        match.group(1)
+        for match in re.finditer(
+            r"\b(?:called|named)\s+([A-Z][A-Za-z0-9]*(?:[- ][A-Z0-9][A-Za-z0-9]*){0,2})",
+            paper.abstract or "",
+        )
+    )
+    generic = {
+        "cpu", "gpu", "gqa", "icml", "kv", "llm", "llms", "rag",
+    }
+    return {
+        alias
+        for alias in aliases
+        if len(_normalize(alias).replace(" ", "")) >= 3
+        and _normalize(alias) not in generic
+    }
+
+
+def _direct_method_mention(paper: PaperRecord, text: str) -> bool:
+    normalized_text = f" {_normalize(text)} "
+    compact_text = normalized_text.replace(" ", "")
+    return any(
+        f" {_normalize(alias)} " in normalized_text
+        or (
+            len(_normalize(alias).replace(" ", "")) >= 8
+            and _normalize(alias).replace(" ", "") in compact_text
+        )
+        for alias in _paper_method_aliases(paper)
+    )
+
+
 def _substantive_discussion(text: str, citation_count: int) -> bool:
     # A many-paper citation list is weak evidence even when another clause in
     # the same sentence happens to contain a relation verb.
@@ -424,6 +574,7 @@ def _relation_for_context(
     cited_paper: PaperRecord,
     entity: EntityOrigin | None,
     citation_count: int,
+    direct_method_mention: bool = False,
 ) -> tuple[str, list[str], bool, float]:
     relations = ["CITES"]
     parent_eligible = False
@@ -458,9 +609,15 @@ def _relation_for_context(
         return "strong", relations, True, 0.88
 
     if section_type in {"introduction", "preliminary"} and _substantive_discussion(
-        context, citation_count
+        context, 1 if direct_method_mention else citation_count
     ):
-        return "medium", relations, parent_eligible, 0.72
+        relations.append("DIRECT_DISCUSSION")
+        return (
+            "medium",
+            relations,
+            parent_eligible,
+            0.78 if direct_method_mention else 0.72,
+        )
 
     return "weak", relations, False, 0.35
 
@@ -483,7 +640,8 @@ def extract_evidence_atoms(
     for section in document.sections:
         sentences = _sentences(section.text)
         for index, sentence in enumerate(sentences):
-            matches = list(CITATION_RE.finditer(sentence))
+            numeric_matches = list(CITATION_RE.finditer(sentence))
+            author_year_mentions = _author_year_citations(sentence)
             context = " ".join(
                 # A cited method is often named first, described in the next
                 # sentence, and critiqued in the sentence after that.  Keep two
@@ -491,7 +649,7 @@ def extract_evidence_atoms(
                 # attached to the cited predecessor rather than lost.
                 sentences[max(0, index - 1) : min(len(sentences), index + 3)]
             )
-            if not matches:
+            if not numeric_matches and not author_year_mentions:
                 if section.section_type != "evaluation" or not BASELINE_CUES.search(
                     sentence
                 ):
@@ -521,59 +679,74 @@ def extract_evidence_atoms(
                         )
                     )
                 continue
+
             all_numbers = {
                 number
-                for match in matches
+                for match in numeric_matches
                 for number in _citation_numbers(match.group(1))
             }
-            for match in matches:
+            citation_count = len(all_numbers) + len(author_year_mentions)
+            resolved_mentions: list[tuple[str, str]] = []
+            for match in numeric_matches:
                 marker = match.group(0)
                 for number in _citation_numbers(match.group(1)):
                     cited_id = document.reference_ids.get(number)
-                    # PDF text extraction can splice a running page header into
-                    # the final bibliography entry on a page.  If that header is
-                    # the current paper's title, fuzzy bibliography resolution
-                    # may otherwise create a bogus self-citation/self-loop.
-                    if cited_id == document.paper_id:
-                        continue
-                    cited_paper = by_id.get(cited_id or "")
-                    if cited_paper is None:
-                        continue
-                    entity = _matching_entity(context, cited_id, origins)
-                    level, relations, parent_eligible, confidence = _relation_for_context(
-                        section_type=section.section_type,
-                        sentence=sentence,
-                        context=context,
-                        cited_paper=cited_paper,
-                        entity=entity,
-                        citation_count=len(all_numbers),
-                    )
-                    role = (
-                        "IMPLICIT_BASELINE"
-                        if "IMPLICIT_BASELINE" in relations
-                        else "EXPLICIT_BASELINE"
-                        if "EXPLICIT_BASELINE" in relations
-                        else "METHOD_DEPENDENCY"
-                        if "METHOD_DEPENDENCY" in relations
-                        else "DIRECT_DISCUSSION"
-                        if level == "medium"
-                        else "CITATION"
-                    )
-                    atom = EvidenceAtom(
-                        paper_id=document.paper_id,
-                        cited_paper_id=cited_id,
-                        section=section.heading,
-                        section_type=section.section_type,
-                        text=context,
-                        role=role,
-                        citation_marker=marker,
-                        entity=entity.entity if entity else None,
-                        source_path=document.source_path,
-                        confidence=confidence,
-                    )
-                    extracted.append(
-                        (cited_id, atom, level, relations, parent_eligible)
-                    )
+                    if cited_id:
+                        resolved_mentions.append((marker, cited_id))
+            for marker, surname, year in author_year_mentions:
+                cited_id = _resolve_author_year_citation(
+                    document, surname, year
+                )
+                if cited_id:
+                    resolved_mentions.append((marker, cited_id))
+
+            for marker, cited_id in resolved_mentions:
+                # PDF text extraction can splice a running page header into
+                # the final bibliography entry on a page.  If that header is
+                # the current paper's title, fuzzy bibliography resolution
+                # may otherwise create a bogus self-citation/self-loop.
+                if cited_id == document.paper_id:
+                    continue
+                cited_paper = by_id.get(cited_id)
+                if cited_paper is None:
+                    continue
+                entity = _matching_entity(context, cited_id, origins)
+                direct_method = _direct_method_mention(cited_paper, sentence)
+                level, relations, parent_eligible, confidence = _relation_for_context(
+                    section_type=section.section_type,
+                    sentence=sentence,
+                    context=context,
+                    cited_paper=cited_paper,
+                    entity=entity,
+                    citation_count=citation_count,
+                    direct_method_mention=direct_method,
+                )
+                role = (
+                    "IMPLICIT_BASELINE"
+                    if "IMPLICIT_BASELINE" in relations
+                    else "EXPLICIT_BASELINE"
+                    if "EXPLICIT_BASELINE" in relations
+                    else "METHOD_DEPENDENCY"
+                    if "METHOD_DEPENDENCY" in relations
+                    else "DIRECT_DISCUSSION"
+                    if level == "medium"
+                    else "CITATION"
+                )
+                atom = EvidenceAtom(
+                    paper_id=document.paper_id,
+                    cited_paper_id=cited_id,
+                    section=section.heading,
+                    section_type=section.section_type,
+                    text=context,
+                    role=role,
+                    citation_marker=marker,
+                    entity=entity.entity if entity else None,
+                    source_path=document.source_path,
+                    confidence=confidence,
+                )
+                extracted.append(
+                    (cited_id, atom, level, relations, parent_eligible)
+                )
     return extracted
 
 
@@ -658,6 +831,7 @@ def relation_edges_from_documents(
                     "USES_CONCEPT_FROM",
                     "ADDRESSES_LIMITATION",
                     "EXTENDS",
+                    "DIRECT_DISCUSSION",
                     "CITES",
                 )
                 if relation in relations

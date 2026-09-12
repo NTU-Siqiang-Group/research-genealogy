@@ -105,6 +105,7 @@ def _medium_information_key(edge: EvolutionEdge) -> tuple[Any, ...]:
         "ADDRESSES_LIMITATION": 5,
         "USES_CONCEPT_FROM": 4,
         "EXTENDS": 3,
+        "DIRECT_DISCUSSION": 3,
         "EXPLICIT_BASELINE": 2,
         "CITES": 1,
     }

@@ -434,6 +434,8 @@ class SearchPipeline:
                     str(output_dir / "evolution_dag.json"),
                     "--retrieval",
                     str(retrieval_index),
+                    "--corpus",
+                    str(corpus_path),
                     "--topic",
                     request["topic"],
                     "--output",

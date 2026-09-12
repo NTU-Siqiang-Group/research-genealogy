@@ -5,6 +5,7 @@ from src.evidence_extraction import (
     FullTextDocument,
     FullTextSection,
     relation_edges_from_documents,
+    parse_bibliography,
     split_sections,
 )
 from src.schema import PaperRecord
@@ -57,6 +58,74 @@ class EvidenceExtractionTest(unittest.TestCase):
         self.assertEqual(edge.association_level, "medium")
         self.assertIn("ADDRESSES_LIMITATION", edge.relation_types)
         self.assertFalse(edge.dominant)
+
+    def test_directly_named_method_in_large_intro_citation_list_is_medium(self) -> None:
+        self.origin.abstract = (
+            "We propose a cache merging approach, called KVMerger, for long contexts."
+        )
+        document = FullTextDocument(
+            paper_id=self.target.paper_id,
+            sections=[
+                FullTextSection(
+                    "1 Introduction",
+                    "introduction",
+                    "Merging methods such as KVMerger [14], WeightedKV [17], "
+                    "D2O [13], and LOOK-M [12] preserve evicted tokens. "
+                    "We address two limitations of these uniform merging methods.",
+                )
+            ],
+            reference_ids={14: self.origin.paper_id},
+        )
+        edge = relation_edges_from_documents([self.origin, self.target], [document])[0]
+        self.assertEqual(edge.association_level, "medium")
+        self.assertEqual(edge.relation, "ADDRESSES_LIMITATION")
+        self.assertIn("DIRECT_DISCUSSION", edge.relation_types)
+        self.assertEqual(edge.evidence_details[0].role, "DIRECT_DISCUSSION")
+
+    def test_generic_large_intro_citation_list_stays_weak(self) -> None:
+        document = FullTextDocument(
+            paper_id=self.target.paper_id,
+            sections=[
+                FullTextSection(
+                    "1 Introduction",
+                    "introduction",
+                    "Several merging approaches [14, 17, 13, 12] reduce memory use.",
+                )
+            ],
+            reference_ids={14: self.origin.paper_id},
+        )
+        edge = relation_edges_from_documents([self.origin, self.target], [document])[0]
+        self.assertEqual(edge.association_level, "weak")
+
+    def test_author_year_bibliography_and_citation_are_resolved(self) -> None:
+        origin = PaperRecord(
+            "P:flexgen",
+            "FlexGen: High-Throughput Generative Inference of Large Language Models",
+            2023,
+            metadata={"authors": ["Ying Sheng"]},
+        )
+        target = PaperRecord("P:next", "A Follow-up System", 2024)
+        raw = (
+            "1 INTRODUCTION\n"
+            "FlexGen offloads model state between CPU and GPU (Sheng et al., 2023), "
+            "but this mechanism is limited by transfer bandwidth.\n"
+            "REFERENCES\n"
+            "Ying Sheng, Lianmin Zheng, and Ion Stoica. FlexGen: High-Throughput "
+            "Generative Inference of Large Language Models, 2023.\n"
+            "OpenAI. GPT-4 technical report, 2023.\n"
+        )
+        references = parse_bibliography(raw)
+        self.assertEqual(len(references), 2)
+        document = FullTextDocument(
+            paper_id=target.paper_id,
+            sections=split_sections(raw)[0],
+            references=references,
+        )
+        edge = relation_edges_from_documents([origin, target], [document])[0]
+        self.assertEqual(edge.source, origin.paper_id)
+        self.assertEqual(edge.association_level, "medium")
+        self.assertIn("DIRECT_DISCUSSION", edge.relation_types)
+        self.assertIn("Sheng et al., 2023", edge.evidence_details[0].citation_marker)
 
     def test_artifact_baseline_recovers_strong_genealogy(self) -> None:
         document = FullTextDocument(

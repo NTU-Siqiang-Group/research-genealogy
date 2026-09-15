@@ -1,0 +1,44 @@
+name: Evidence or relationship correction
+description: Report a missing, overstated, or incorrectly classified paper relationship.
+title: "[Evidence]: "
+labels: ["evidence correction", "area: evidence"]
+body:
+  - type: input
+    id: source
+    attributes:
+      label: Earlier/source paper
+      description: Title plus DOI, arXiv ID, or OpenAlex ID.
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Later/target paper
+      description: Title plus DOI, arXiv ID, or OpenAlex ID.
+    validations:
+      required: true
+  - type: dropdown
+    id: correction
+    attributes:
+      label: Correction type
+      options:
+        - Missing relationship
+        - Relationship should be weaker
+        - Relationship should be stronger
+        - Wrong direction
+        - Incorrect evidence passage
+        - Duplicate paper identity
+    validations:
+      required: true
+  - type: textarea
+    id: support
+    attributes:
+      label: Supporting evidence
+      description: Identify the public source, section, table, or short passage. Do not upload the full PDF.
+    validations:
+      required: true
+  - type: textarea
+    id: run
+    attributes:
+      label: Search settings
+      description: Seed and non-secret limits/settings needed to reproduce the graph.

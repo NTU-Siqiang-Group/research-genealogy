@@ -1,5 +1,10 @@
 # Research Genealogy
 
+[![CI](https://github.com/NTU-Siqiang-Group/research-genealogy/actions/workflows/ci.yml/badge.svg)](https://github.com/NTU-Siqiang-Group/research-genealogy/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2f6f4e.svg)](LICENSE)
+![Status: research prototype](https://img.shields.io/badge/status-research_prototype-C97A40)
+
 Turn one seed paper into an evidence-backed map of the work it follows—and the
 work that follows it.
 
@@ -10,6 +15,9 @@ question: **which papers actually continue a technical line of work?** It
 retrieves available full text, reads where and how earlier work is discussed,
 and builds an inspectable directed graph instead of treating every citation as
 equally meaningful.
+
+> **Project status:** active research prototype. The evidence model and saved
+> result format are usable, but may evolve before a 1.0 release.
 
 ## What it does
 
@@ -93,6 +101,8 @@ sudo apt-get install poppler-utils
 From a clone of this repository:
 
 ```bash
+git clone https://github.com/NTU-Siqiang-Group/research-genealogy.git
+cd research-genealogy
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
@@ -201,6 +211,20 @@ reports/    prototype experiments and design history
 This is a research prototype: full-text availability and imperfect publication
 metadata can still limit recall. The interface exposes the underlying evidence
 so missing or incorrect edges can be audited instead of hidden behind a score.
+
+## Reporting issues
+
+Use the repository's structured issue forms for reproducible bugs, feature
+requests, or evidence/relationship corrections. Please do not attach copyrighted
+PDFs, API keys, `.env` files, or generated `data/searches/` bundles. For a
+security-sensitive report, follow [SECURITY.md](SECURITY.md) instead of opening
+a public issue.
+
+## Citing
+
+If this software supports a paper or research artifact, cite the version you
+used. GitHub can generate BibTeX and other formats from [CITATION.cff](CITATION.cff).
+Release notes are maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

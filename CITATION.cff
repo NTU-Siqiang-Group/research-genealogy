@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use Research Genealogy in academic work, please cite the software version you used."
+title: "Research Genealogy"
+type: software
+authors:
+  - name: "NTU Siqiang Group"
+abstract: "An evidence-backed system for tracing technical research lineages from seed papers."
+repository-code: "https://github.com/NTU-Siqiang-Group/research-genealogy"
+url: "https://github.com/NTU-Siqiang-Group/research-genealogy"
+license: MIT
+version: 0.2.0
+date-released: 2026-09-15
+keywords:
+  - academic literature
+  - citation analysis
+  - knowledge graph
+  - OpenAlex
+  - research genealogy

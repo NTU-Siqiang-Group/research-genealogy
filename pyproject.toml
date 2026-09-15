@@ -10,6 +10,29 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = ["PyYAML>=6.0", "openai>=3.3.1"]
+keywords = [
+    "academic-literature",
+    "citation-analysis",
+    "knowledge-graph",
+    "openalex",
+    "research-genealogy",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+[project.urls]
+Homepage = "https://github.com/NTU-Siqiang-Group/research-genealogy"
+Repository = "https://github.com/NTU-Siqiang-Group/research-genealogy.git"
+Issues = "https://github.com/NTU-Siqiang-Group/research-genealogy/issues"
+Changelog = "https://github.com/NTU-Siqiang-Group/research-genealogy/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

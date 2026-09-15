@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a focused improvement to the workflow or interface.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Research or user problem
+      description: Describe the concrete task that is difficult today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the desired input, output, and interaction.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Example papers or evidence
+      description: Add public identifiers or links when they help define the case. Do not upload PDFs.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request does not contain API keys, private result bundles, or copyrighted PDFs.
+          required: true

@@ -233,7 +233,7 @@ class CoIRetrievalAdapter:
                 ),
                 timeout=self.request_timeout_seconds,
             )
-        except TimeoutError as error:
+        except (TimeoutError, asyncio.TimeoutError) as error:
             raise RuntimeError(
                 f"CoI search timed out for {query!r}; the upstream client may be "
                 "stuck in its unbounded Semantic Scholar 429 retry loop"

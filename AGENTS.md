@@ -5,7 +5,8 @@
 - GitHub repository: https://github.com/NTU-Siqiang-Group/research-genealogy
 - Git remote URL: `git@github.com:NTU-Siqiang-Group/research-genealogy.git`
 - Default branch: `main`
-- Visibility: private. Do not make the repository public without explicit user approval.
+- Visibility: public. Do not make the repository private, archive it, or
+  transfer ownership without explicit user approval.
 - Treat the organization repository above as the only canonical remote. Do not
   create or push this project to a personal fork unless the user explicitly asks.
 
